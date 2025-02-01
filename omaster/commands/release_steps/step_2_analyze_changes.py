@@ -22,7 +22,7 @@ def get_git_diff() -> str:
     except subprocess.CalledProcessError as e:
         raise ReleaseError(ErrorCode.GIT_NO_CHANGES, str(e))
 
-def analyze_changes(project_path: Path) -> tuple[bool, dict]:
+def run(project_path: Path) -> tuple[bool, dict]:
     """Analyze changes and generate commit info.
     
     Args:

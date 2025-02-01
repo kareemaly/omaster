@@ -13,6 +13,9 @@ class ErrorCode(Enum):
     MISSING_README = 103
     INVALID_README = 104
     
+    # Code quality errors (150-199)
+    CODE_QUALITY_ERROR = 150
+    
     # Git errors (200-299)
     GIT_NO_CHANGES = 200
     GIT_ADD_FAILED = 201
@@ -86,43 +89,56 @@ requires-python = ">=3.8"
         fix_instructions="Create a README.md file in your project root",
         example="""# Your Package Name
 
-A brief description of your package.
+Brief description of your package.
 
 ## Installation
 
-\`\`\`bash
-uv pip install your-package
-\`\`\`
-
 ## Usage
-
-Basic usage examples...
 """
     ),
     ErrorCode.INVALID_README: ErrorTemplate(
         title="Invalid README.md",
-        description="The README.md file is missing required sections or is too short",
-        fix_instructions="Ensure README includes Installation and Usage sections, and is at least 50 characters",
-        example="See README.md template above"
+        description="The README.md file is invalid or missing required sections",
+        fix_instructions="Ensure all required sections are present",
+        example="""# Package Name
+
+Description
+
+## Installation
+Installation instructions...
+
+## Usage
+Usage instructions...
+"""
+    ),
+    ErrorCode.CODE_QUALITY_ERROR: ErrorTemplate(
+        title="Code Quality Error",
+        description="Code quality checks failed",
+        fix_instructions="Review and fix the reported quality issues",
+        example="""Common issues:
+- High cyclomatic complexity (>10)
+- High cognitive complexity (>15)
+- Low maintainability index (<65)
+- Dead code or unused imports
+- Code duplication"""
     ),
     ErrorCode.GIT_NO_CHANGES: ErrorTemplate(
         title="No Git Changes",
-        description="No changes detected in git working directory",
-        fix_instructions="Make changes to your code before releasing",
-        example="git status to check current changes"
+        description="No changes detected in git",
+        fix_instructions="Make changes before running the release process",
+        example="git status"
     ),
     ErrorCode.GIT_ADD_FAILED: ErrorTemplate(
         title="Git Add Failed",
-        description="Failed to stage changes with git add",
-        fix_instructions="Check git status and resolve any conflicts",
-        example="git status to see what went wrong"
+        description="Failed to stage changes",
+        fix_instructions="Check file permissions and git status",
+        example="git add --all"
     ),
     ErrorCode.GIT_COMMIT_FAILED: ErrorTemplate(
         title="Git Commit Failed",
         description="Failed to commit changes",
-        fix_instructions="Ensure you have configured git user.name and user.email",
-        example="""git config --global user.name "Your Name"
-git config --global user.email "you@example.com\""""
+        fix_instructions="Check git configuration and staged files",
+        example="git commit -m 'message'"
     ),
     ErrorCode.GIT_PUSH_FAILED: ErrorTemplate(
         title="Git Push Failed",
@@ -133,13 +149,13 @@ git config --global user.email "you@example.com\""""
     ErrorCode.BUILD_CLEAN_FAILED: ErrorTemplate(
         title="Build Clean Failed",
         description="Failed to clean old build files",
-        fix_instructions="Manually remove dist directory and try again",
+        fix_instructions="Check file permissions and try manually",
         example="rm -rf dist/*"
     ),
     ErrorCode.BUILD_FAILED: ErrorTemplate(
         title="Build Failed",
         description="Failed to build package",
-        fix_instructions="Check build logs for specific errors",
+        fix_instructions="Check build configuration and dependencies",
         example="uv build"
     ),
     ErrorCode.PUBLISH_FAILED: ErrorTemplate(

@@ -1,66 +1,90 @@
-"""Main entry point for the omaster tool."""
+"""Main entry point for omaster."""
+import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 from .commands import release_steps
-from .core.errors import ReleaseError, ErrorCode
+from .core.errors import ReleaseError
 
 
-def run_release_pipeline(project_path: Optional[str] = None) -> bool:
-    """Run the complete release pipeline.
-    
-    Steps:
-    1. Validate
-    2. Analyze changes
-    3. Bump version
-    4. Clean and build
-    5. Publish
-    6. Git commit and push
+def get_project_path(path: str = None) -> Path:
+    """Get the project path.
     
     Args:
-        project_path: Optional path to the project directory. Defaults to current directory.
+        path: Optional path to project directory
         
     Returns:
-        bool: True if release successful, False otherwise
+        Path: Absolute path to project directory
     """
-    path = Path(project_path or ".").resolve()
-    print(f"\nReleasing project: {path}\n")
+    if path:
+        project_path = Path(path).resolve()
+    else:
+        project_path = Path.cwd()
+        
+    if not project_path.is_dir():
+        raise ReleaseError(
+            "Invalid project path. Must be a directory."
+        )
+        
+    return project_path
+
+
+def run_release_pipeline(project_path: str = None) -> bool:
+    """Run the complete release pipeline.
     
+    Args:
+        project_path: Optional path to project directory
+        
+    Returns:
+        bool: True if release successful
+    """
     try:
-        # Step 1: Validate
-        if not release_steps.step_1_validate.run(path):
-            return False
-            
+        # Get project path
+        path = get_project_path(project_path)
+        print(f"\nReleasing project: {path}\n")
+        
+        # Step 1: Validate project
+        release_steps.step_1_validate.run(path)
+        
+        # Step 1.5: Code quality checks
+        release_steps.step_1_5_code_quality.run(path)
+        
         # Step 2: Analyze changes
-        success, commit_info = release_steps.step_2_analyze_changes.analyze_changes(path)
+        success, commit_info = release_steps.step_2_analyze_changes.run(path)
         if not success:
             return False
             
         # Step 3: Bump version
-        if not release_steps.step_3_bump_version.run(path, commit_info):
+        success = release_steps.step_3_bump_version.run(path, commit_info)
+        if not success:
             return False
             
         # Step 4: Clean and build
-        if not release_steps.step_4_clean_build.run(path):
+        success = release_steps.step_4_clean_build.run(path)
+        if not success:
             return False
             
         # Step 5: Publish
-        if not release_steps.step_5_publish.run(path):
+        success = release_steps.step_5_publish.run(path)
+        if not success:
             return False
             
         # Step 6: Git commit and push
-        if not release_steps.step_6_git_commit.run(path, commit_info):
+        success = release_steps.step_6_git_commit.run(path, commit_info)
+        if not success:
             return False
-        
+            
         print("Release completed successfully!")
         return True
         
     except ReleaseError as e:
         print(str(e))
         return False
+    except KeyboardInterrupt:
+        print("\n\nOperation cancelled by user")
+        return False
     except Exception as e:
-        print(ReleaseError(ErrorCode.UNKNOWN_ERROR, str(e)))
+        print(f"\n🚨 Unexpected error: {str(e)}")
         return False
 
 
