@@ -1,6 +1,6 @@
 # omaster
 
-A Python package validator and release tool that helps ensure your packages meet quality standards before publishing.
+A Python package validator and release tool that helps ensure your packages meet quality standards before publishing. Built with modern Python tools and AI-powered features.
 
 ## Features
 
@@ -111,6 +111,21 @@ The tool runs a complete release pipeline that includes:
   ```bash
   export OPENAI_API_KEY='your-api-key'
   ```
+
+### Configuration
+
+The tool can be configured using a `.omaster.yaml` file in your project root:
+
+```yaml
+ai:
+  model: gpt-4o-mini  # or gpt-4o
+```
+
+Available configuration options:
+
+- `ai.model`: AI model to use for analysis
+  - `gpt-4o-mini`: Faster, more efficient model (default)
+  - `gpt-4o`: More powerful model for complex analysis
 
 ### Error Handling
 

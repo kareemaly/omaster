@@ -2,8 +2,9 @@
 from pathlib import Path
 import tomli
 import tomli_w
-from typing import Tuple
+from typing import Tuple, Literal
 
+BumpType = Literal["major", "minor", "patch"]
 
 def parse_version(version: str) -> Tuple[int, int, int]:
     """Parse version string into (major, minor, patch) tuple."""
@@ -14,11 +15,12 @@ def parse_version(version: str) -> Tuple[int, int, int]:
         raise ValueError(f"Invalid version format: {version}. Expected 'major.minor.patch'")
 
 
-def bump_version(project_path: Path) -> bool:
-    """Bump the patch version in pyproject.toml.
+def bump_version(project_path: Path, bump_type: BumpType) -> bool:
+    """Bump version in pyproject.toml based on bump type.
     
     Args:
         project_path: Path to the project directory
+        bump_type: Type of version bump (major, minor, patch)
         
     Returns:
         bool: True if version was bumped successfully
@@ -33,8 +35,14 @@ def bump_version(project_path: Path) -> bool:
         current_version = pyproject["project"]["version"]
         major, minor, patch = parse_version(current_version)
         
-        # Bump patch version
-        new_version = f"{major}.{minor}.{patch + 1}"
+        # Bump version based on type
+        if bump_type == "major":
+            new_version = f"{major + 1}.0.0"
+        elif bump_type == "minor":
+            new_version = f"{major}.{minor + 1}.0"
+        else:  # patch
+            new_version = f"{major}.{minor}.{patch + 1}"
+            
         pyproject["project"]["version"] = new_version
         
         # Write updated version
@@ -46,4 +54,4 @@ def bump_version(project_path: Path) -> bool:
         
     except Exception as e:
         print(f"Error bumping version: {str(e)}")
-        return False 
+        return False

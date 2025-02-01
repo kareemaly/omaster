@@ -35,6 +35,9 @@ class ErrorCode(Enum):
     OPENAI_API_KEY_MISSING = 600
     OPENAI_API_ERROR = 601
     
+    # Configuration errors (700-799)
+    CONFIG_ERROR = 700
+    
     # System errors (900-999)
     UNKNOWN_ERROR = 999
 
@@ -175,6 +178,12 @@ version = "0.1.1"  # Increment version number"""
         description="Error calling OpenAI API",
         fix_instructions="Check API key and error message",
         example="Check OpenAI status page for service issues"
+    ),
+    ErrorCode.CONFIG_ERROR: ErrorTemplate(
+        title="Configuration Error",
+        description="An error occurred in the configuration",
+        fix_instructions="Review the configuration settings and fix the issue",
+        example="Check configuration file for details"
     ),
     ErrorCode.UNKNOWN_ERROR: ErrorTemplate(
         title="Unknown Error",

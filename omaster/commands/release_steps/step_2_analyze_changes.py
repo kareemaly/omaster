@@ -2,12 +2,13 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import TypedDict
+from pydantic import BaseModel
 from openai import OpenAI
 
 from ...core.errors import ErrorCode, ReleaseError
+from ...core.config import Config
 
-class CommitInfo(TypedDict):
+class CommitInfo(BaseModel):
     title: str
     description: str
     bump_type: str  # major, minor, or patch
@@ -21,19 +22,22 @@ def get_git_diff() -> str:
     except subprocess.CalledProcessError as e:
         raise ReleaseError(ErrorCode.GIT_NO_CHANGES, str(e))
 
-def analyze_changes(project_path: Path) -> tuple[bool, CommitInfo]:
+def analyze_changes(project_path: Path) -> tuple[bool, dict]:
     """Analyze changes and generate commit info.
     
     Args:
         project_path: Path to the project directory
         
     Returns:
-        tuple[bool, CommitInfo]: Success status and commit info
+        tuple[bool, dict]: Success status and commit info dictionary
         
     Raises:
         ReleaseError: If analysis fails
     """
     print("Step 2: Analyzing changes...")
+    
+    # Load configuration
+    config = Config(project_path)
     
     # Get OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
@@ -50,40 +54,21 @@ def analyze_changes(project_path: Path) -> tuple[bool, CommitInfo]:
         
     try:
         client = OpenAI()
-        response = client.chat.completions.create(
-            model="gpt-4",
+        completion = client.beta.chat.completions.parse(
+            model=config.model,
             messages=[
-                {"role": "system", "content": "Analyze the git diff and generate a commit message and version bump type."},
+                {
+                    "role": "system", 
+                    "content": "You are a commit message generator. Analyze the git diff and generate a structured commit message."
+                },
                 {"role": "user", "content": f"Git diff:\n{diff}"}
             ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "type": "object",
-                    "properties": {
-                        "title": {
-                            "type": "string",
-                            "description": "Short commit title summarizing changes"
-                        },
-                        "description": {
-                            "type": "string",
-                            "description": "Detailed description of changes"
-                        },
-                        "bump_type": {
-                            "type": "string",
-                            "enum": ["major", "minor", "patch"],
-                            "description": "Version bump type based on changes"
-                        }
-                    },
-                    "required": ["title", "description", "bump_type"],
-                    "additionalProperties": False
-                }
-            }
+            response_format=CommitInfo,
         )
         
-        commit_info = response.choices[0].message.content
+        commit_info = completion.choices[0].message.parsed
         print("✓ Changes analyzed\n")
-        return True, commit_info
+        return True, commit_info.model_dump()
         
     except Exception as e:
-        raise ReleaseError(ErrorCode.OPENAI_API_ERROR, str(e)) 
+        raise ReleaseError(ErrorCode.OPENAI_API_ERROR, str(e))
