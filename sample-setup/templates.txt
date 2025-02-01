@@ -1,0 +1,65 @@
+# Template Files for UV Projects
+
+## 1. Minimal pyproject.toml
+```toml
+[project]
+name = "your-package"
+version = "0.1.0"
+description = "Your package description"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+your-cmd = "your_package.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
+
+## 2. Basic Package Structure
+```
+your-package/
+├── your_package/
+│   ├── __init__.py
+│   └── main.py
+├── README.md
+└── pyproject.toml
+```
+
+## 3. Basic __init__.py
+```python
+"""Your package description"""
+
+__version__ = "0.1.0"
+```
+
+## 4. Basic main.py
+```python
+def main():
+    """Main entry point for the script."""
+    print("Hello from your package!")
+
+if __name__ == "__main__":
+    main()
+```
+
+## 5. Basic README.md
+```markdown
+# Your Package Name
+
+Brief description of your package.
+
+## Installation
+
+```bash
+uv pip install your-package
+```
+
+## Usage
+
+```bash
+uvx your-cmd
+```
+``` 

@@ -1,0 +1,24 @@
+# Common Issues and Solutions
+
+Q: Python version not found (e.g., "pyenv: version '3.13' is not installed")
+A: Update requires-python in pyproject.toml to use an installed version (e.g., ">=3.8")
+
+Q: Package has no executables ("The executable was not found")
+A: Add [project.scripts] section in pyproject.toml:
+   [project.scripts]
+   your-cmd = "your_package.main:main"
+
+Q: Multiple top-level packages error
+A: Use minimal build configuration with hatchling:
+   [build-system]
+   requires = ["hatchling"]
+   build-backend = "hatchling.build"
+
+Q: File already exists on PyPI
+A: 1. Update version in pyproject.toml
+   2. Clean old builds: rm -rf dist/*
+   3. Rebuild and publish
+
+Q: Package not found after publishing
+A: Wait a few minutes for PyPI to update, or install directly from wheel:
+   uv pip install dist/package-version-py3-none-any.whl 

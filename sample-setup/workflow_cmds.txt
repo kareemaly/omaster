@@ -1,0 +1,29 @@
+# Common UV Workflow Commands
+
+# Install dependencies
+uv add requests beautifulsoup4  # Add specific packages
+uv add 'requests==2.31.0'      # Add with version constraint
+uv add git+https://github.com/user/repo  # Add from git
+
+# Remove dependencies
+uv remove requests  # Remove a package
+
+# Build package
+uv build  # Build source and wheel distributions
+rm -rf dist/*  # Clean old builds if needed
+
+# Publish package
+uv publish  # Publish to PyPI (requires authentication)
+
+# Install and run
+uv pip install .  # Install from local directory
+uv pip install your-package  # Install from PyPI
+uvx your-cmd  # Run command (alias for 'uv tool run your-cmd')
+
+# Development
+uv run script.py  # Run a Python script
+uv sync  # Update virtual environment
+
+# Activate virtual environment (if not using uvx/uv run)
+source .venv/bin/activate  # Unix/macOS
+.venv\Scripts\activate     # Windows 

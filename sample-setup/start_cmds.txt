@@ -1,0 +1,19 @@
+# Initial Setup Commands
+
+# 1. Create new project
+uv init omaster
+
+# 2. Change to project directory
+cd omaster
+
+# 3. Project structure is created:
+# - .python-version (Python version)
+# - README.md (Basic readme)
+# - hello.py (Sample script)
+# - pyproject.toml (Package configuration)
+
+# 4. Create package directory
+mkdir omaster
+
+# 5. Create package files
+touch omaster/__init__.py 
