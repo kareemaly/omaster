@@ -2,21 +2,9 @@
 
 This step publishes the package to PyPI.
 """
-import subprocess
 from pathlib import Path
-
 from ...core.errors import ReleaseError, ErrorCode
-
-def run_command(cmd: str, cwd: Path) -> bool:
-    """Run a shell command."""
-    try:
-        subprocess.run(cmd.split(), check=True, cwd=cwd)
-        return True
-    except subprocess.CalledProcessError as e:
-        raise ReleaseError(
-            ErrorCode.PUBLISH_ERROR,
-            str(e)
-        )
+from ...utils import run_command
 
 def run(project_path: Path) -> bool:
     """Run publish step.
@@ -31,7 +19,7 @@ def run(project_path: Path) -> bool:
         ReleaseError: If publish fails
     """
     print("Step 5: Publishing package...")
-    if not run_command("uv publish", project_path):
+    if not run_command("uv publish", project_path, ErrorCode.PUBLISH_ERROR):
         return False
 
     print("✓ Package published successfully\n")

@@ -1,5 +1,5 @@
 """Error handling for the release process."""
-from enum import Enum, auto
+from enum import Enum
 from typing import Dict, Optional
 import traceback
 import sys
@@ -74,14 +74,6 @@ class ReleaseError(Exception):
                 formatted += f"\n• {key}: {value}"
 
         return formatted
-
-    def with_traceback(self) -> str:
-        """Get error message with traceback.
-
-        Returns:
-            Error message with traceback
-        """
-        return f"{self._format_message()}\n\n{traceback.format_exc()}"
 
 
 def handle_error(error: Exception) -> None:

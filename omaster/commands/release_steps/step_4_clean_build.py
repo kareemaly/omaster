@@ -1,16 +1,8 @@
 """Step 4: Clean old builds and build package."""
 import shutil
-import subprocess
 from pathlib import Path
 from ...core.errors import ErrorCode, ReleaseError
-
-def run_command(cmd: str, cwd: Path) -> bool:
-    """Run a shell command."""
-    try:
-        subprocess.run(cmd.split(), check=True, cwd=cwd)
-        return True
-    except subprocess.CalledProcessError as e:
-        raise ReleaseError(ErrorCode.BUILD_FAILED, str(e))
+from ...utils import run_command
 
 def clean_dist(project_path: Path) -> bool:
     """Clean up old build files."""
@@ -44,9 +36,9 @@ def run(project_path: Path) -> bool:
 
     # Build
     try:
-        if not run_command("uv build", project_path):
+        if not run_command("uv build", project_path, ErrorCode.BUILD_FAILED):
             raise ReleaseError(ErrorCode.BUILD_FAILED)
         print("✓ Build successful\n")
         return True
-    except subprocess.CalledProcessError as e:
-        raise ReleaseError(ErrorCode.BUILD_FAILED, str(e))
+    except ReleaseError:
+        raise
