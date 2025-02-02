@@ -25,6 +25,8 @@ class ErrorCode(Enum):
     OPENAI_API_KEY_MISSING = 108
     GIT_OPERATION_FAILED = 109
     VERSION_UPDATE_FAILED = 110
+    BUILD_FAILED = 111
+    BUILD_CLEAN_FAILED = 112
 
 # Error messages for each error code
 ERROR_MESSAGES: Dict[ErrorCode, str] = {
@@ -39,7 +41,9 @@ ERROR_MESSAGES: Dict[ErrorCode, str] = {
     ErrorCode.GIT_NO_CHANGES: "[red]No git changes found:[/red] {message}",
     ErrorCode.OPENAI_API_KEY_MISSING: "[red]OpenAI API key missing:[/red] Please set OPENAI_API_KEY environment variable",
     ErrorCode.GIT_OPERATION_FAILED: "[red]Git operation failed:[/red] {message}",
-    ErrorCode.VERSION_UPDATE_FAILED: "[red]Version update failed:[/red] {message}"
+    ErrorCode.VERSION_UPDATE_FAILED: "[red]Version update failed:[/red] {message}",
+    ErrorCode.BUILD_FAILED: "[red]Build failed:[/red] {message}",
+    ErrorCode.BUILD_CLEAN_FAILED: "[red]Build clean failed:[/red] {message}"
 }
 
 
