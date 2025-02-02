@@ -1,7 +1,11 @@
-"""Step 1: Validate the project."""
+"""Step 1: Validate the project.
+
+This step validates the project structure and required files.
+"""
 import os
 from pathlib import Path
 import tomli
+from rich.progress import Progress
 from ...core.errors import ErrorCode, ReleaseError
 
 
@@ -85,27 +89,33 @@ def validate_readme(project_path: Path) -> bool:
     return True
 
 
-def run(project_path: Path) -> bool:
+def run(project_path: Path, progress: Progress = None, task_id: int = None) -> bool:
     """Run validation step.
 
     Args:
-        project_path: Path to the project directory
+        project_path: Path to project directory
+        progress: Optional Progress instance for updating status
+        task_id: Optional task ID for the progress bar
 
     Returns:
-        bool: True if validation successful, False otherwise
+        bool: True if validation passes
 
     Raises:
         ReleaseError: If validation fails
     """
-    print("Step 1: Validating project...")
-
-    # Validate pyproject.toml
-    validate_pyproject(project_path)
-    print("✓ pyproject.toml valid")
-
-    # Validate README.md
-    validate_readme(project_path)
-    print("✓ README.md valid")
-
-    print("✓ Validation passed\n")
+    if progress and task_id:
+        progress.update(task_id, advance=30, description="[green]Step 1: Validating pyproject.toml...")
+    
+    if not validate_pyproject(project_path):
+        return False
+        
+    if progress and task_id:
+        progress.update(task_id, advance=30, description="[green]Step 1: Validating README.md...")
+    
+    if not validate_readme(project_path):
+        return False
+        
+    if progress and task_id:
+        progress.update(task_id, advance=40, description="[green]Step 1: All validations passed")
+    
     return True
