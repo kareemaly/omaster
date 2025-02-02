@@ -1,269 +1,205 @@
-"""Configuration management for omaster."""
+"""Configuration management for the release process."""
 from pathlib import Path
-import os
+from typing import Any, Dict, Optional
 import yaml
-from typing import Dict, Any, Optional
-from .errors import ErrorCode, ReleaseError
-import logging
 
-logger = logging.getLogger(__name__)
+from .errors import ReleaseError, ErrorCode
 
-VALID_MODELS = ["gpt-4o", "gpt-4o-mini"]
-
-# Default weights for different issue severities (0-1 scale)
-DEFAULT_SEVERITY_WEIGHTS = {
-    "critical": 1.0,    # Critical issues (security, crashes)
-    "high": 0.8,        # High severity (complexity, performance)
-    "medium": 0.5,      # Medium severity (maintainability, style)
-    "low": 0.2,         # Low severity (minor style issues)
-    "info": 0.1         # Informational issues
-}
-
+# Default configuration values
 DEFAULT_CONFIG = {
-    "ai": {
-        "model": "gpt-4o-mini"  # Default to the smaller model
+    "project": {
+        "name": "",
+        "version": "0.1.0",
+        "description": "",
+        "author": "",
+        "email": "",
+        "url": ""
     },
-    "quality": {
-        # Complexity thresholds
-        "complexity": {
-            "max_cyclomatic": 15,
-            "max_cognitive": 20,
-            "min_maintainability": 65,
-            "max_halstead_difficulty": 30,
-            "min_halstead_language_level": 0.8,
-            "max_bug_prediction": 0.4,
-            "max_oop_complexity": 50,
-            "weights": {
-                "cyclomatic": 0.8,
-                "cognitive": 0.7,
-                "maintainability": 0.6,
-                "halstead": 0.5,
-                "oop": 0.4
-            }
-        },
-        # Dead code thresholds
-        "dead_code": {
-            "unused_import_threshold": 0.2,
-            "unused_variable_threshold": 0.3,
-            "unused_function_threshold": 0.5,
-            "unused_class_threshold": 0.6,
-            "unreachable_code_threshold": 0.8,
-            "weights": {
-                "unused_import": 0.2,
-                "unused_variable": 0.3,
-                "unused_function": 0.5,
-                "unused_class": 0.6,
-                "unreachable_code": 0.8
-            }
-        },
-        # Similarity thresholds
-        "similarity": {
-            "exact_match_threshold": 1.0,
-            "ast_similarity_threshold": 0.7,
-            "token_similarity_threshold": 0.8,
-            "cfg_similarity_threshold": 0.6,
-            "semantic_similarity_threshold": 0.85,
-            "min_lines": 6,
-            "weights": {
-                "exact_match": 1.0,
-                "ast_similarity": 0.8,
-                "token_similarity": 0.6,
-                "cfg_similarity": 0.7,
-                "semantic_similarity": 0.5
-            }
-        },
-        # Global severity weights
-        "severity_weights": DEFAULT_SEVERITY_WEIGHTS.copy()
+    "release": {
+        "branch": "main",
+        "tag_prefix": "v",
+        "changelog": "CHANGELOG.md"
+    },
+    "build": {
+        "clean": True,
+        "test": True,
+        "docs": True
+    },
+    "publish": {
+        "repository": "pypi",
+        "skip_existing": False
+    },
+    "ai": {
+        "model": "gpt-4",
+        "api_key": None
     }
 }
 
+def load_config(path: Path) -> Dict[str, Any]:
+    """Load configuration from .omaster.yaml file.
+
+    Args:
+        path: Path to the project directory
+
+    Returns:
+        Configuration dictionary
+
+    Raises:
+        ReleaseError: If configuration is invalid
+    """
+    config_file = path / ".omaster.yaml"
+    if not config_file.exists():
+        raise ReleaseError(
+            ErrorCode.CONFIG_ERROR,
+            f"Configuration file not found: {config_file}"
+        )
+
+    try:
+        with open(config_file) as f:
+            config = yaml.safe_load(f) or {}
+    except Exception as e:
+        raise ReleaseError(
+            ErrorCode.CONFIG_ERROR,
+            f"Failed to load configuration: {e}"
+        )
+
+    # Validate and merge with defaults
+    return validate_config(config)
+
+def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate configuration values.
+
+    Args:
+        config: Configuration dictionary
+
+    Returns:
+        Validated configuration dictionary
+
+    Raises:
+        ReleaseError: If configuration is invalid
+    """
+    # Start with default config
+    validated = DEFAULT_CONFIG.copy()
+
+    # Validate project section
+    if "project" in config:
+        project_config = config["project"]
+        if not isinstance(project_config, dict):
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                "Invalid project configuration: must be a dictionary"
+            )
+        validated["project"].update(project_config)
+
+    # Validate release section
+    if "release" in config:
+        release_config = config["release"]
+        if not isinstance(release_config, dict):
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                "Invalid release configuration: must be a dictionary"
+            )
+        validated["release"].update(release_config)
+
+    # Validate build section
+    if "build" in config:
+        build_config = config["build"]
+        if not isinstance(build_config, dict):
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                "Invalid build configuration: must be a dictionary"
+            )
+        validated["build"].update(build_config)
+
+    # Validate publish section
+    if "publish" in config:
+        publish_config = config["publish"]
+        if not isinstance(publish_config, dict):
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                "Invalid publish configuration: must be a dictionary"
+            )
+        validated["publish"].update(publish_config)
+
+    # Validate AI section
+    if "ai" in config:
+        ai_config = config["ai"]
+        if not isinstance(ai_config, dict):
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                "Invalid AI configuration: must be a dictionary"
+            )
+        validated["ai"].update(ai_config)
+
+    return validated
 
 class Config:
     """Configuration manager."""
 
-    def __init__(self, config_data: Dict[str, Any]):
+    def __init__(self, data: Dict[str, Any]):
         """Initialize configuration.
 
         Args:
-            config_data: Configuration data
+            data: Configuration dictionary
         """
-        self.data = config_data
+        self.data = data
 
-    @classmethod
-    def load(cls, project_path: Optional[Path] = None) -> 'Config':
-        """Load configuration from .omaster.yaml file.
+    @property
+    def project_name(self) -> str:
+        """Get the project name."""
+        return self.data["project"]["name"]
 
-        Args:
-            project_path: Optional path to project directory
+    @property
+    def project_version(self) -> str:
+        """Get the project version."""
+        return self.data["project"]["version"]
 
-        Returns:
-            Config instance
+    @property
+    def release_branch(self) -> str:
+        """Get the release branch name."""
+        return self.data["release"]["branch"]
 
-        Raises:
-            ReleaseError: If configuration is invalid
-        """
-        config_data = DEFAULT_CONFIG.copy()
+    @property
+    def tag_prefix(self) -> str:
+        """Get the release tag prefix."""
+        return self.data["release"]["tag_prefix"]
 
-        # Find config file
-        if project_path is None:
-            project_path = Path.cwd()
+    @property
+    def changelog_file(self) -> str:
+        """Get the changelog file path."""
+        return self.data["release"]["changelog"]
 
-        config_path = project_path / ".omaster.yaml"
-        logger.info(f"Looking for configuration at {config_path}")
+    @property
+    def clean_build(self) -> bool:
+        """Get whether to clean before building."""
+        return self.data["build"]["clean"]
 
-        if config_path.exists():
-            try:
-                logger.info("Loading configuration from .omaster.yaml")
-                with open(config_path, "r") as f:
-                    user_config = yaml.safe_load(f)
-                
-                if user_config:
-                    # Merge user config with defaults
-                    cls._merge_configs(config_data, user_config)
-                    logger.info("✓ Configuration loaded successfully")
-            except Exception as e:
-                logger.error(f"Failed to load configuration: {str(e)}")
-                raise ReleaseError(
-                    ErrorCode.CONFIG_ERROR,
-                    f"Failed to load configuration: {str(e)}"
-                )
-        else:
-            logger.info("No .omaster.yaml found, using default configuration")
+    @property
+    def run_tests(self) -> bool:
+        """Get whether to run tests."""
+        return self.data["build"]["test"]
 
-        # Validate configuration
-        cls._validate_config(config_data)
-        return cls(config_data)
+    @property
+    def build_docs(self) -> bool:
+        """Get whether to build documentation."""
+        return self.data["build"]["docs"]
 
-    @staticmethod
-    def _merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> None:
-        """Recursively merge override config into base config.
+    @property
+    def publish_repository(self) -> str:
+        """Get the publish repository."""
+        return self.data["publish"]["repository"]
 
-        Args:
-            base: Base configuration
-            override: Override configuration
-        """
-        for key, value in override.items():
-            if (
-                key in base 
-                and isinstance(base[key], dict) 
-                and isinstance(value, dict)
-            ):
-                Config._merge_configs(base[key], value)
-            else:
-                base[key] = value
-
-    @staticmethod
-    def _validate_config(config: Dict[str, Any]) -> None:
-        """Validate configuration.
-
-        Args:
-            config: Configuration to validate
-
-        Raises:
-            ReleaseError: If configuration is invalid
-        """
-        # Validate AI model
-        ai_config = config.get("ai", {})
-        model = ai_config.get("model")
-        if model and model not in VALID_MODELS:
-            raise ReleaseError(
-                ErrorCode.CONFIG_ERROR,
-                f"Invalid AI model: {model}. Must be one of: {', '.join(VALID_MODELS)}"
-            )
-
-        # Validate quality thresholds
-        quality_config = config.get("quality", {})
-        for section in ["complexity", "dead_code", "similarity"]:
-            if section in quality_config:
-                section_config = quality_config[section]
-                if not isinstance(section_config, dict):
-                    raise ReleaseError(
-                        ErrorCode.CONFIG_ERROR,
-                        f"Invalid quality.{section} configuration: must be a dictionary"
-                    )
-
-                # Validate weights
-                weights = section_config.get("weights", {})
-                if not isinstance(weights, dict):
-                    raise ReleaseError(
-                        ErrorCode.CONFIG_ERROR,
-                        f"Invalid quality.{section}.weights configuration: must be a dictionary"
-                    )
-                for weight_name, weight_value in weights.items():
-                    if not isinstance(weight_value, (int, float)) or not 0 <= weight_value <= 1:
-                        raise ReleaseError(
-                            ErrorCode.CONFIG_ERROR,
-                            f"Invalid weight value for {section}.{weight_name}: {weight_value}. Must be between 0 and 1"
-                        )
-
-        # Validate severity weights
-        severity_weights = quality_config.get("severity_weights", {})
-        if not isinstance(severity_weights, dict):
-            raise ReleaseError(
-                ErrorCode.CONFIG_ERROR,
-                "Invalid severity_weights configuration: must be a dictionary"
-            )
-        for severity, weight in severity_weights.items():
-            if not isinstance(weight, (int, float)) or not 0 <= weight <= 1:
-                raise ReleaseError(
-                    ErrorCode.CONFIG_ERROR,
-                    f"Invalid severity weight for {severity}: {weight}. Must be between 0 and 1"
-                )
-
-    def get(self, *keys: str, default: Any = None) -> Any:
-        """Get configuration value.
-
-        Args:
-            *keys: Key path
-            default: Default value if key not found
-
-        Returns:
-            Configuration value
-        """
-        value = self.data
-        for key in keys:
-            if not isinstance(value, dict):
-                return default
-            value = value.get(key, default)
-            if value is None:
-                return default
-        return value
+    @property
+    def skip_existing(self) -> bool:
+        """Get whether to skip existing versions."""
+        return self.data["publish"]["skip_existing"]
 
     @property
     def model(self) -> str:
-        """Get the configured AI model."""
+        """Get the AI model name."""
         return self.data["ai"]["model"]
 
     @property
-    def github_repo(self) -> str:
-        """Get the configured GitHub repository name."""
-        return self.data["github"]["repo_name"]
-
-    @property
-    def github_org(self) -> str | None:
-        """Get the configured GitHub organization (if any)."""
-        return self.data["github"]["org"]
-
-    @property
-    def github_private(self) -> bool:
-        """Get whether the repository should be private."""
-        return self.data["github"]["private"]
-
-    @property
-    def quality_config(self) -> dict:
-        """Get the code quality configuration."""
-        return self.data["quality"]
-
-    def get_severity_weight(self, severity: str) -> float:
-        """Get the weight for a severity level.
-
-        Args:
-            severity: Severity level (critical, high, medium, low, info)
-
-        Returns:
-            float: Weight between 0 and 1
-        """
-        return self.data["quality"]["severity_weights"].get(
-            severity.lower(),
-            DEFAULT_SEVERITY_WEIGHTS["info"]
-        )
+    def api_key(self) -> Optional[str]:
+        """Get the OpenAI API key."""
+        return self.data["ai"]["api_key"]

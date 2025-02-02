@@ -1,74 +1,148 @@
 """Step 2: Analyze changes and generate commit info using OpenAI."""
 import os
 import subprocess
+import logging
 from pathlib import Path
+from typing import Tuple, Dict, Any
 from pydantic import BaseModel
 from openai import OpenAI
 
 from ...core.errors import ErrorCode, ReleaseError
-from ...core.config import Config
+from ...core.config import Config, load_config
+
+logger = logging.getLogger(__name__)
 
 class CommitInfo(BaseModel):
+    """Model for commit information."""
     title: str
     description: str
     bump_type: str  # major, minor, or patch
 
 def get_git_diff() -> str:
-    """Get git diff of staged and unstaged changes."""
+    """Get git diff of staged and unstaged changes.
+
+    Returns:
+        str: Git diff output
+
+    Raises:
+        ReleaseError: If git command fails
+    """
     try:
+        logger.info("Getting git diff...")
         staged = subprocess.check_output(['git', 'diff', '--cached'], text=True)
         unstaged = subprocess.check_output(['git', 'diff'], text=True)
+        if not (staged or unstaged):
+            raise ReleaseError(
+                ErrorCode.GIT_NO_CHANGES,
+                "No changes found in git repository"
+            )
+        logger.info("✓ Git diff retrieved successfully")
         return staged + unstaged
     except subprocess.CalledProcessError as e:
-        raise ReleaseError(ErrorCode.GIT_NO_CHANGES, str(e))
+        raise ReleaseError(
+            ErrorCode.GIT_NO_CHANGES,
+            f"Failed to get git diff: {str(e)}"
+        )
 
-def run(project_path: Path) -> tuple[bool, dict]:
+def commit_and_push(commit_info: CommitInfo) -> None:
+    """Commit changes and push to remote.
+
+    Args:
+        commit_info: Commit information from AI
+
+    Raises:
+        ReleaseError: If git operations fail
+    """
+    try:
+        logger.info("Staging all changes...")
+        subprocess.run(['git', 'add', '.'], check=True)
+        logger.info("✓ Changes staged")
+
+        logger.info("Creating commit...")
+        commit_msg = f"{commit_info.title}\n\n{commit_info.description}"
+        subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
+        logger.info("✓ Changes committed")
+
+        logger.info("Pushing to remote...")
+        subprocess.run(['git', 'push'], check=True)
+        logger.info("✓ Changes pushed to remote")
+
+    except subprocess.CalledProcessError as e:
+        raise ReleaseError(
+            ErrorCode.GIT_OPERATION_FAILED,
+            f"Failed to perform git operation: {str(e)}"
+        )
+
+def run(project_path: Path) -> Tuple[bool, CommitInfo]:
     """Analyze changes and generate commit info.
 
     Args:
         project_path: Path to the project directory
 
     Returns:
-        tuple[bool, dict]: Success status and commit info dictionary
+        Tuple[bool, CommitInfo]: Success status and commit info
 
     Raises:
         ReleaseError: If analysis fails
     """
-    print("Step 2: Analyzing changes...")
+    logger.info("Step 2: Analyzing changes...")
 
     # Load configuration
-    config = Config(project_path)
+    logger.info("Loading configuration...")
+    config_data = load_config(project_path)
+    config = Config(config_data)
+    logger.info("✓ Configuration loaded")
 
     # Get OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise ReleaseError(ErrorCode.OPENAI_API_KEY_MISSING)
+        raise ReleaseError(
+            ErrorCode.OPENAI_API_KEY_MISSING,
+            "OpenAI API key not found in environment"
+        )
+    logger.info("✓ OpenAI API key found")
 
     # Get git diff
-    try:
-        diff = get_git_diff()
-        if not diff:
-            raise ReleaseError(ErrorCode.GIT_NO_CHANGES)
-    except subprocess.CalledProcessError as e:
-        raise ReleaseError(ErrorCode.GIT_NO_CHANGES, str(e))
+    diff = get_git_diff()
 
     try:
-        client = OpenAI()
-        completion = client.beta.chat.completions.parse(
+        logger.info("Analyzing changes with OpenAI...")
+        client = OpenAI(api_key=api_key)
+        completion = client.chat.completions.create(
             model=config.model,
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a commit message generator. Analyze the git diff and generate a structured commit message."
+                    "content": (
+                        "You are a commit message generator. Analyze the git diff "
+                        "and generate a structured commit message. Your response must be a JSON object "
+                        "with exactly these fields:\n"
+                        "- title: A concise title following conventional commits format\n"
+                        "- description: A detailed description of the changes\n"
+                        "- bump_type: One of 'major', 'minor', or 'patch' based on semantic versioning\n\n"
+                        "Example response format:\n"
+                        "{\n"
+                        '  "title": "feat: add new feature",\n'
+                        '  "description": "Added new feature that does X",\n'
+                        '  "bump_type": "minor"\n'
+                        "}"
+                    )
                 },
                 {"role": "user", "content": f"Git diff:\n{diff}"}
             ],
-            response_format=CommitInfo,
+            response_format={"type": "json_object"}
         )
 
-        commit_info = completion.choices[0].message.parsed
-        print("✓ Changes analyzed\n")
-        return True, commit_info.model_dump()
+        commit_info = CommitInfo.model_validate_json(completion.choices[0].message.content)
+        logger.info(f"✓ Changes analyzed: {commit_info.title}")
+
+        # Commit and push changes
+        commit_and_push(commit_info)
+
+        return True, commit_info
 
     except Exception as e:
-        raise ReleaseError(ErrorCode.OPENAI_API_ERROR, str(e))
+        raise ReleaseError(
+            ErrorCode.OPENAI_API_ERROR,
+            f"Failed to analyze changes: {str(e)}"
+        )

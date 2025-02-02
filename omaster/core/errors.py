@@ -1,5 +1,5 @@
 """Error handling for the release process."""
-from enum import IntEnum
+from enum import Enum, auto
 from typing import Dict, Optional
 import traceback
 import sys
@@ -10,57 +10,36 @@ from rich.traceback import Traceback
 
 console = Console()
 
-class ErrorCode(IntEnum):
+class ErrorCode(Enum):
     """Error codes for the release process."""
 
-    # General errors (1-99)
-    UNEXPECTED_ERROR = 1
-    CONFIG_ERROR = 2
+    # General errors (100-199)
+    UNKNOWN_ERROR = 100
+    CONFIG_ERROR = 101
+    VALIDATION_ERROR = 102
+    ANALYSIS_ERROR = 103
+    BUILD_ERROR = 104
+    PUBLISH_ERROR = 105
+    OPENAI_API_ERROR = 106
+    GIT_NO_CHANGES = 107
+    OPENAI_API_KEY_MISSING = 108
+    GIT_OPERATION_FAILED = 109
+    VERSION_UPDATE_FAILED = 110
 
-    # Validation errors (100-199)
-    PYPROJECT_ERROR = 100
-    README_ERROR = 101
-    VERSION_ERROR = 102
-
-    # Quality analysis errors (200-299)
-    ANALYZER_INIT_ERROR = 200
-    ANALYSIS_ERROR = 201
-    QUALITY_ERROR = 202
-
-    # Git errors (300-399)
-    GIT_ERROR = 300
-
-    # Build errors (400-499)
-    BUILD_ERROR = 400
-
-    # Publish errors (500-599)
-    PUBLISH_ERROR = 500
-
-
-# Error message templates with rich formatting
-ERROR_TEMPLATES = {
+# Error messages for each error code
+ERROR_MESSAGES: Dict[ErrorCode, str] = {
     # General errors
-    ErrorCode.UNEXPECTED_ERROR: "[red]An unexpected error occurred:[/red] {message}",
+    ErrorCode.UNKNOWN_ERROR: "[red]Unexpected error:[/red] {message}",
     ErrorCode.CONFIG_ERROR: "[red]Configuration error:[/red] {message}",
-
-    # Validation errors
-    ErrorCode.PYPROJECT_ERROR: "[red]pyproject.toml error:[/red] {message}",
-    ErrorCode.README_ERROR: "[red]README.md error:[/red] {message}",
-    ErrorCode.VERSION_ERROR: "[red]Version error:[/red] {message}",
-
-    # Quality analysis errors
-    ErrorCode.ANALYZER_INIT_ERROR: "[red]Failed to initialize analyzer:[/red] {message}",
-    ErrorCode.ANALYSIS_ERROR: "[red]Analysis error:[/red] {message}",
-    ErrorCode.QUALITY_ERROR: "[red]Quality check failed:[/red] {message}",
-
-    # Git errors
-    ErrorCode.GIT_ERROR: "[red]Git error:[/red] {message}",
-
-    # Build errors
-    ErrorCode.BUILD_ERROR: "[red]Build error:[/red] {message}",
-
-    # Publish errors
-    ErrorCode.PUBLISH_ERROR: "[red]Publish error:[/red] {message}"
+    ErrorCode.VALIDATION_ERROR: "[red]Validation failed:[/red] {message}",
+    ErrorCode.ANALYSIS_ERROR: "[red]Analysis failed:[/red] {message}",
+    ErrorCode.BUILD_ERROR: "[red]Build failed:[/red] {message}",
+    ErrorCode.PUBLISH_ERROR: "[red]Publish failed:[/red] {message}",
+    ErrorCode.OPENAI_API_ERROR: "[red]OpenAI API error:[/red] {message}",
+    ErrorCode.GIT_NO_CHANGES: "[red]No git changes found:[/red] {message}",
+    ErrorCode.OPENAI_API_KEY_MISSING: "[red]OpenAI API key missing:[/red] Please set OPENAI_API_KEY environment variable",
+    ErrorCode.GIT_OPERATION_FAILED: "[red]Git operation failed:[/red] {message}",
+    ErrorCode.VERSION_UPDATE_FAILED: "[red]Version update failed:[/red] {message}"
 }
 
 
@@ -86,7 +65,7 @@ class ReleaseError(Exception):
         Returns:
             Formatted error message
         """
-        template = ERROR_TEMPLATES[self.code]
+        template = ERROR_MESSAGES[self.code]
         formatted = template.format(message=self.message)
 
         if self.details:

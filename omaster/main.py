@@ -1,18 +1,15 @@
 """Main entry point for the release pipeline."""
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from .core.errors import ReleaseError, ErrorCode, handle_error
 from .core.validator import validate_project
 from .commands.release_steps import (
     step_1_validate,
-    step_1_5_code_quality,
     step_2_analyze_changes,
-    step_3_bump_version,
     step_4_clean_build,
-    step_5_publish,
-    step_6_git_commit
+    step_5_publish
 )
 
 # Configure logging
@@ -67,35 +64,39 @@ def run_release_pipeline(project_path: Optional[str] = None) -> bool:
         path = get_project_path(project_path)
         logger.info(f"\nProject directory: {path}")
 
-        # Step 1: Validate project structure
-        logger.info("\nStep 1: Project Structure Validation")
-        logger.info("-"*30)
-        logger.info("Checking required files and configurations...")
-        if not validate_project(path):
-            logger.error("Project validation failed")
-            raise ReleaseError(
-                ErrorCode.CONFIG_ERROR,
-                "Project validation failed"
-            )
-        logger.info("✓ All required files present")
-        logger.info("✓ Project structure validation passed")
+        # Step 1: Validate repository state
+        logger.info("\nStep 1: Validation")
+        logger.info("Validating repository state...")
+        if not step_1_validate.run(path):
+            logger.error("Validation failed")
+            return False
+        logger.info("✓ Validation passed")
 
-        # Step 1.5: Code quality analysis
-        logger.info("\nStep 1.5: Code Quality Analysis")
-        logger.info("-"*30)
-        logger.info("Running code quality checks...")
-        logger.info("This may take a few moments...")
-        if not step_1_5_code_quality.run(path):
-            logger.error("Code quality checks failed")
-            raise ReleaseError(
-                ErrorCode.QUALITY_ERROR,
-                "Code quality checks failed"
-            )
-        logger.info("✓ Code quality checks passed")
+        # Step 2: Analyze changes
+        logger.info("\nStep 2: Change Analysis")
+        logger.info("Analyzing changes...")
+        if not step_2_analyze_changes.run(path):
+            logger.error("Change analysis failed")
+            return False
+        logger.info("✓ Change analysis passed")
 
-        logger.info("\n" + "="*50)
-        logger.info("Release pipeline completed successfully")
-        logger.info("="*50 + "\n")
+        # Step 4: Clean and build
+        logger.info("\nStep 4: Clean and Build")
+        logger.info("Cleaning and building project...")
+        if not step_4_clean_build.run(path):
+            logger.error("Clean and build failed")
+            return False
+        logger.info("✓ Clean and build passed")
+
+        # Step 5: Publish
+        logger.info("\nStep 5: Publish")
+        logger.info("Publishing release...")
+        if not step_5_publish.run(path):
+            logger.error("Publish failed")
+            return False
+        logger.info("✓ Publish completed")
+
+        logger.info("\n✨ Release process completed successfully!")
         return True
 
     except ReleaseError as e:
@@ -112,14 +113,56 @@ def main() -> int:
     """Main entry point.
 
     Returns:
-        int: Exit code (0 for success, 1 for failure)
+        int: Exit code (0 for success, non-zero for failure)
     """
     try:
-        success = run_release_pipeline()
-        return 0 if success else 1
+        path = Path.cwd()
+        logger.info("Starting release process...")
+
+        # Step 1: Validate repository state
+        logger.info("\nStep 1: Validation")
+        logger.info("Validating repository state...")
+        if not step_1_validate.run(path):
+            logger.error("❌ Validation failed")
+            return ErrorCode.VALIDATION_ERROR.value
+        logger.info("✓ Validation passed")
+
+        # Step 2: Analyze changes
+        logger.info("\nStep 2: Change Analysis")
+        logger.info("Analyzing changes...")
+        success, commit_info = step_2_analyze_changes.run(path)
+        if not success:
+            logger.error("❌ Change analysis failed")
+            return ErrorCode.ANALYSIS_ERROR.value
+        logger.info("✓ Change analysis passed")
+        logger.info(f"✓ Changes committed: {commit_info.title}")
+        logger.info(f"✓ Version bump type: {commit_info.bump_type}")
+
+        # Step 4: Clean and build
+        logger.info("\nStep 4: Clean and Build")
+        logger.info("Cleaning and building project...")
+        if not step_4_clean_build.run(path):
+            logger.error("❌ Clean and build failed")
+            return ErrorCode.BUILD_ERROR.value
+        logger.info("✓ Clean and build passed")
+
+        # Step 5: Publish
+        logger.info("\nStep 5: Publish")
+        logger.info("Publishing release...")
+        if not step_5_publish.run(path):
+            logger.error("❌ Publish failed")
+            return ErrorCode.PUBLISH_ERROR.value
+        logger.info("✓ Publish completed")
+
+        logger.info("\n✨ Release process completed successfully!")
+        return 0
+
+    except ReleaseError as e:
+        logger.error(str(e))
+        return e.code.value
     except Exception as e:
-        handle_error(e)
-        return 1
+        logger.error("Unexpected error during release process", exc_info=True)
+        return ErrorCode.UNKNOWN_ERROR.value
 
 if __name__ == "__main__":
     main()
