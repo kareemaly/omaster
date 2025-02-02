@@ -67,22 +67,22 @@ def main():
         action='store_true',
         help='Output results in JSON format'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Collect Python files
     python_files = collect_python_files(args.paths)
     if not python_files:
         print("No Python files found in the specified paths.")
         return
-    
+
     # Initialize and run analyzer
     analyzer = SimilarityAnalyzer(
         min_fragment_size=args.min_lines,
         similarity_threshold=args.threshold
     )
     results = analyzer.analyze(python_files)
-    
+
     # Output results
     if args.json:
         formatted = format_results(results)
@@ -100,4 +100,4 @@ def main():
                     print(f"    {line}")
 
 if __name__ == '__main__':
-    main() 
+    main()

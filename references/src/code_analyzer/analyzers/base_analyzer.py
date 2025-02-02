@@ -14,7 +14,7 @@ class BaseAnalyzer:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the analyzer.
-        
+
         Args:
             config: Optional configuration dictionary
         """
@@ -32,7 +32,7 @@ class BaseAnalyzer:
 
     def _log_error(self, message: str) -> None:
         """Log an error message.
-        
+
         Args:
             message: Error message to log
         """
@@ -41,10 +41,10 @@ class BaseAnalyzer:
 
     def should_ignore_file(self, file_path: Path) -> bool:
         """Check if a file should be ignored.
-        
+
         Args:
             file_path: Path to check
-            
+
         Returns:
             bool: True if the file should be ignored
         """

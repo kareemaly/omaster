@@ -1,14 +1,15 @@
 # omaster
 
-A Python package validator and release tool that helps ensure your packages meet quality standards before publishing. Built with modern Python tools and AI-powered features.
+A Python package release tool that automates the entire release process with built-in quality checks and AI-powered features.
 
 ## Features
 
-- Validates package structure and configuration
-- Checks for required documentation
-- Automates version bumping and release process
-- Uses AI to generate meaningful commit messages
-- Extensible validator system
+- Automated release pipeline with quality checks
+- AI-powered commit message generation
+- Semantic version management
+- Code quality analysis
+- Build and publish automation
+- Git integration
 
 ## Installation
 
@@ -54,27 +55,33 @@ When working on omaster itself, always use `uv run -m omaster.main` because:
 
 The tool runs a complete release pipeline that includes:
 
-1. **Validation**
+1. **Project Validation**
    - Required fields in pyproject.toml
    - Build system configuration
    - Entry points and dependencies
    - README.md content and structure
 
-2. **Change Analysis**
+2. **Code Quality Checks**
+   - Complexity analysis (cyclomatic, cognitive)
+   - Dead code detection
+   - Code similarity analysis
+   - Style checks
+
+3. **Change Analysis**
    - Uses OpenAI to analyze git changes
    - Generates meaningful commit messages
    - Suggests version bump type (major, minor, patch)
 
-3. **Version Management**
+4. **Version Management**
    - Automatically bumps version based on changes
    - Follows semantic versioning
 
-4. **Build & Publish**
+5. **Build & Publish**
    - Cleans old build files
    - Builds source and wheel distributions
    - Publishes to PyPI
 
-5. **Git Integration**
+6. **Git Integration**
    - Commits changes with AI-generated message
    - Pushes to remote repository
 
@@ -119,6 +126,16 @@ The tool can be configured using a `.omaster.yaml` file in your project root:
 ```yaml
 ai:
   model: gpt-4o-mini  # or gpt-4o
+
+quality:
+  complexity:
+    max_cyclomatic: 15
+    max_cognitive: 20
+    min_maintainability: 65
+  similarity:
+    min_lines: 6
+    exact_match_threshold: 1.0
+    ast_similarity_threshold: 0.7
 ```
 
 Available configuration options:
@@ -126,6 +143,9 @@ Available configuration options:
 - `ai.model`: AI model to use for analysis
   - `gpt-4o-mini`: Faster, more efficient model (default)
   - `gpt-4o`: More powerful model for complex analysis
+- `quality`: Code quality thresholds and settings
+  - `complexity`: Complexity analysis settings
+  - `similarity`: Code similarity detection settings
 
 ### Error Handling
 

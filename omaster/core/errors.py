@@ -1,250 +1,170 @@
-"""Centralized error handling system."""
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+"""Error handling for the release process."""
+from enum import IntEnum
+from typing import Dict, Optional
+import traceback
+import sys
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.traceback import Traceback
 
+console = Console()
 
-class ErrorCode(Enum):
-    """Error codes for all possible errors in the system."""
+class ErrorCode(IntEnum):
+    """Error codes for the release process."""
+
+    # General errors (1-99)
+    UNEXPECTED_ERROR = 1
+    CONFIG_ERROR = 2
+
     # Validation errors (100-199)
-    VALIDATION_FAILED = 100
-    MISSING_PYPROJECT = 101
-    INVALID_PYPROJECT = 102
-    MISSING_README = 103
-    INVALID_README = 104
-    
-    # Code quality errors (150-199)
-    CODE_QUALITY_ERROR = 150
-    
-    # Git errors (200-299)
-    GIT_NO_CHANGES = 200
-    GIT_ADD_FAILED = 201
-    GIT_COMMIT_FAILED = 202
-    GIT_PUSH_FAILED = 203
-    
-    # Build errors (300-399)
-    BUILD_CLEAN_FAILED = 300
-    BUILD_FAILED = 301
-    
-    # Publish errors (400-499)
-    PUBLISH_FAILED = 400
-    PACKAGE_EXISTS = 401
-    
-    # Version errors (500-599)
-    VERSION_BUMP_FAILED = 500
-    INVALID_VERSION = 501
-    
-    # OpenAI errors (600-699)
-    OPENAI_API_KEY_MISSING = 600
-    OPENAI_API_ERROR = 601
-    
-    # Configuration errors (700-799)
-    CONFIG_ERROR = 700
-    
-    # System errors (900-999)
-    UNKNOWN_ERROR = 999
+    PYPROJECT_ERROR = 100
+    README_ERROR = 101
+    VERSION_ERROR = 102
+
+    # Quality analysis errors (200-299)
+    ANALYZER_INIT_ERROR = 200
+    ANALYSIS_ERROR = 201
+    QUALITY_ERROR = 202
+
+    # Git errors (300-399)
+    GIT_ERROR = 300
+
+    # Build errors (400-499)
+    BUILD_ERROR = 400
+
+    # Publish errors (500-599)
+    PUBLISH_ERROR = 500
 
 
-@dataclass
-class ErrorTemplate:
-    """Template for an error message."""
-    title: str
-    description: str
-    fix_instructions: str
-    example: Optional[str] = None
-
-
+# Error message templates with rich formatting
 ERROR_TEMPLATES = {
-    ErrorCode.VALIDATION_FAILED: ErrorTemplate(
-        title="Validation Failed",
-        description="One or more validation checks failed",
-        fix_instructions="Review the specific validation errors above and fix each one",
-        example="See validation error messages for details"
-    ),
-    ErrorCode.MISSING_PYPROJECT: ErrorTemplate(
-        title="Missing pyproject.toml",
-        description="The pyproject.toml file is required but was not found",
-        fix_instructions="Create a pyproject.toml file in your project root",
-        example="""[project]
-name = "your-package"
-version = "0.1.0"
-description = "Your package description"
-"""
-    ),
-    ErrorCode.INVALID_PYPROJECT: ErrorTemplate(
-        title="Invalid pyproject.toml",
-        description="The pyproject.toml file is invalid or missing required fields",
-        fix_instructions="Ensure all required fields are present and valid",
-        example="""[project]
-name = "package-name"  # Required
-version = "0.1.0"     # Required
-description = "..."   # Required
-readme = "README.md"  # Required
-requires-python = ">=3.8"
-"""
-    ),
-    ErrorCode.MISSING_README: ErrorTemplate(
-        title="Missing README.md",
-        description="The README.md file is required but was not found",
-        fix_instructions="Create a README.md file in your project root",
-        example="""# Your Package Name
+    # General errors
+    ErrorCode.UNEXPECTED_ERROR: "[red]An unexpected error occurred:[/red] {message}",
+    ErrorCode.CONFIG_ERROR: "[red]Configuration error:[/red] {message}",
 
-Brief description of your package.
+    # Validation errors
+    ErrorCode.PYPROJECT_ERROR: "[red]pyproject.toml error:[/red] {message}",
+    ErrorCode.README_ERROR: "[red]README.md error:[/red] {message}",
+    ErrorCode.VERSION_ERROR: "[red]Version error:[/red] {message}",
 
-## Installation
+    # Quality analysis errors
+    ErrorCode.ANALYZER_INIT_ERROR: "[red]Failed to initialize analyzer:[/red] {message}",
+    ErrorCode.ANALYSIS_ERROR: "[red]Analysis error:[/red] {message}",
+    ErrorCode.QUALITY_ERROR: "[red]Quality check failed:[/red] {message}",
 
-## Usage
-"""
-    ),
-    ErrorCode.INVALID_README: ErrorTemplate(
-        title="Invalid README.md",
-        description="The README.md file is invalid or missing required sections",
-        fix_instructions="Ensure all required sections are present",
-        example="""# Package Name
+    # Git errors
+    ErrorCode.GIT_ERROR: "[red]Git error:[/red] {message}",
 
-Description
+    # Build errors
+    ErrorCode.BUILD_ERROR: "[red]Build error:[/red] {message}",
 
-## Installation
-Installation instructions...
-
-## Usage
-Usage instructions...
-"""
-    ),
-    ErrorCode.CODE_QUALITY_ERROR: ErrorTemplate(
-        title="Code Quality Error",
-        description="Code quality checks failed",
-        fix_instructions="Review and fix the reported quality issues",
-        example="""Common issues:
-- High cyclomatic complexity (>10)
-- High cognitive complexity (>15)
-- Low maintainability index (<65)
-- Dead code or unused imports
-- Code duplication"""
-    ),
-    ErrorCode.GIT_NO_CHANGES: ErrorTemplate(
-        title="No Git Changes",
-        description="No changes detected in git",
-        fix_instructions="Make changes before running the release process",
-        example="git status"
-    ),
-    ErrorCode.GIT_ADD_FAILED: ErrorTemplate(
-        title="Git Add Failed",
-        description="Failed to stage changes",
-        fix_instructions="Check file permissions and git status",
-        example="git add --all"
-    ),
-    ErrorCode.GIT_COMMIT_FAILED: ErrorTemplate(
-        title="Git Commit Failed",
-        description="Failed to commit changes",
-        fix_instructions="Check git configuration and staged files",
-        example="git commit -m 'message'"
-    ),
-    ErrorCode.GIT_PUSH_FAILED: ErrorTemplate(
-        title="Git Push Failed",
-        description="Failed to push changes to remote repository",
-        fix_instructions="Pull latest changes and resolve any conflicts",
-        example="git pull --rebase"
-    ),
-    ErrorCode.BUILD_CLEAN_FAILED: ErrorTemplate(
-        title="Build Clean Failed",
-        description="Failed to clean old build files",
-        fix_instructions="Check file permissions and try manually",
-        example="rm -rf dist/*"
-    ),
-    ErrorCode.BUILD_FAILED: ErrorTemplate(
-        title="Build Failed",
-        description="Failed to build package",
-        fix_instructions="Check build configuration and dependencies",
-        example="uv build"
-    ),
-    ErrorCode.PUBLISH_FAILED: ErrorTemplate(
-        title="Publish Failed",
-        description="Failed to publish package to PyPI",
-        fix_instructions="Check PyPI credentials and package version",
-        example="uv publish"
-    ),
-    ErrorCode.PACKAGE_EXISTS: ErrorTemplate(
-        title="Package Already Exists",
-        description="Package version already exists on PyPI",
-        fix_instructions="Bump version number in pyproject.toml",
-        example="Current: 0.1.0 -> New: 0.1.1"
-    ),
-    ErrorCode.VERSION_BUMP_FAILED: ErrorTemplate(
-        title="Version Bump Failed",
-        description="Failed to bump package version",
-        fix_instructions="Manually update version in pyproject.toml",
-        example="""[project]
-version = "0.1.1"  # Increment version number"""
-    ),
-    ErrorCode.INVALID_VERSION: ErrorTemplate(
-        title="Invalid Version",
-        description="Package version is invalid",
-        fix_instructions="Use semantic versioning (MAJOR.MINOR.PATCH)",
-        example="0.1.0, 1.0.0, 2.3.4"
-    ),
-    ErrorCode.OPENAI_API_KEY_MISSING: ErrorTemplate(
-        title="OpenAI API Key Missing",
-        description="OPENAI_API_KEY environment variable not set",
-        fix_instructions="Set OPENAI_API_KEY environment variable",
-        example="export OPENAI_API_KEY='your-api-key'"
-    ),
-    ErrorCode.OPENAI_API_ERROR: ErrorTemplate(
-        title="OpenAI API Error",
-        description="Error calling OpenAI API",
-        fix_instructions="Check API key and error message",
-        example="Check OpenAI status page for service issues"
-    ),
-    ErrorCode.CONFIG_ERROR: ErrorTemplate(
-        title="Configuration Error",
-        description="An error occurred in the configuration",
-        fix_instructions="Review the configuration settings and fix the issue",
-        example="Check configuration file for details"
-    ),
-    ErrorCode.UNKNOWN_ERROR: ErrorTemplate(
-        title="Unknown Error",
-        description="An unexpected error occurred",
-        fix_instructions="Check error message and stack trace",
-        example="Contact support if issue persists"
-    ),
+    # Publish errors
+    ErrorCode.PUBLISH_ERROR: "[red]Publish error:[/red] {message}"
 }
 
 
 class ReleaseError(Exception):
-    """Custom exception for release errors."""
-    def __init__(self, code: ErrorCode, context: Optional[str] = None):
+    """Custom exception for release process errors."""
+
+    def __init__(self, code: ErrorCode, message: str, details: Optional[Dict] = None):
+        """Initialize the error.
+
+        Args:
+            code: Error code
+            message: Error message
+            details: Optional error details
+        """
         self.code = code
-        self.context = context
+        self.message = message
+        self.details = details or {}
         super().__init__(self._format_message())
-    
+
     def _format_message(self) -> str:
-        """Format the error message."""
+        """Format the error message using the template.
+
+        Returns:
+            Formatted error message
+        """
         template = ERROR_TEMPLATES[self.code]
-        
-        # Build the message
-        message = [
-            "🚨 Error 🚨",
-            f"Code: {self.code.value} - {template.title}",
-            "",
-            "Description:",
-            template.description,
-            "",
-            "How to fix:",
-            template.fix_instructions,
-        ]
-        
-        if template.example:
-            message.extend([
-                "",
-                "Example:",
-                template.example
-            ])
-            
-        if self.context:
-            message.extend([
-                "",
-                "Additional context:",
-                self.context
-            ])
-            
-        return "\n".join(message) 
+        formatted = template.format(message=self.message)
+
+        if self.details:
+            formatted += "\n\nDetails:"
+            for key, value in self.details.items():
+                formatted += f"\n• {key}: {value}"
+
+        return formatted
+
+    def with_traceback(self) -> str:
+        """Get error message with traceback.
+
+        Returns:
+            Error message with traceback
+        """
+        return f"{self._format_message()}\n\n{traceback.format_exc()}"
+
+
+def handle_error(error: Exception) -> None:
+    """Global error handler.
+
+    Args:
+        error: The exception to handle
+    """
+    console.print("\n")
+    
+    if isinstance(error, ReleaseError):
+        # Create main error panel
+        error_text = Text()
+        error_text.append("🚨 Error 🚨\n", style="red bold")
+        error_text.append(f"Code: {error.code.value} - {error.code.name}\n\n", style="yellow")
+        error_text.append(error.message)
+
+        main_panel = Panel(
+            error_text,
+            title="[red]Release Pipeline Error",
+            border_style="red"
+        )
+        console.print(main_panel)
+
+        # Show details if present
+        if error.details:
+            details_text = Text()
+            for key, value in error.details.items():
+                if key == "traceback" and value is True:
+                    continue  # Skip traceback flag, we'll handle it separately
+                details_text.append(f"• {key}: ", style="yellow")
+                details_text.append(f"{value}\n", style="white")
+
+            details_panel = Panel(
+                details_text,
+                title="[yellow]Additional Details",
+                border_style="yellow"
+            )
+            console.print(details_panel)
+
+        # Show traceback if requested
+        if error.details and error.details.get("traceback"):
+            console.print("\n[red]Traceback:[/red]")
+            console.print(Traceback.from_exception(
+                type(error),
+                error,
+                traceback.extract_tb(sys.exc_info()[2])
+            ))
+    else:
+        # Handle unexpected exceptions
+        error_panel = Panel(
+            Text(str(error), style="red"),
+            title="[red]Unexpected Error",
+            border_style="red"
+        )
+        console.print(error_panel)
+        console.print("\n[red]Traceback:[/red]")
+        console.print(Traceback.from_exception(
+            type(error),
+            error,
+            traceback.extract_tb(sys.exc_info()[2])
+        ))
+
+    console.print("\n")
+    sys.exit(1)  # Exit with failure code

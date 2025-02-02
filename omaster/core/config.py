@@ -2,8 +2,11 @@
 from pathlib import Path
 import os
 import yaml
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .errors import ErrorCode, ReleaseError
+import logging
+
+logger = logging.getLogger(__name__)
 
 VALID_MODELS = ["gpt-4o", "gpt-4o-mini"]
 
@@ -19,11 +22,6 @@ DEFAULT_SEVERITY_WEIGHTS = {
 DEFAULT_CONFIG = {
     "ai": {
         "model": "gpt-4o-mini"  # Default to the smaller model
-    },
-    "github": {
-        "repo_name": None,  # Will default to pyproject.toml name if not set
-        "org": None,  # Optional, will use user's account if not set
-        "private": False
     },
     "quality": {
         # Complexity thresholds
@@ -74,128 +72,198 @@ DEFAULT_CONFIG = {
                 "semantic_similarity": 0.5
             }
         },
-        # Style thresholds
-        "style": {
-            "max_line_length": 100,
-            "max_function_args": 5,
-            "require_docstrings": True,
-            "weights": {
-                "line_length": 0.3,
-                "naming": 0.4,
-                "docstrings": 0.5,
-                "imports": 0.4,
-                "whitespace": 0.2
-            }
-        },
         # Global severity weights
         "severity_weights": DEFAULT_SEVERITY_WEIGHTS.copy()
     }
 }
 
+
 class Config:
-    """Configuration management class."""
-    
-    def __init__(self, project_path: Path):
+    """Configuration manager."""
+
+    def __init__(self, config_data: Dict[str, Any]):
         """Initialize configuration.
-        
+
         Args:
-            project_path: Path to the project root
+            config_data: Configuration data
         """
-        self.project_path = project_path
-        self.config = self._load_config()
-        
-    def _load_config(self) -> dict:
+        self.data = config_data
+
+    @classmethod
+    def load(cls, project_path: Optional[Path] = None) -> 'Config':
         """Load configuration from .omaster.yaml file.
-        
-        Returns:
-            dict: Merged configuration
-        """
-        config = DEFAULT_CONFIG.copy()
-        
-        config_file = self.project_path / ".omaster.yaml"
-        if config_file.exists():
-            try:
-                with open(config_file) as f:
-                    user_config = yaml.safe_load(f)
-                if user_config:
-                    # Deep merge user config
-                    self._deep_merge(config, user_config)
-            except Exception as e:
-                raise ReleaseError(
-                    ErrorCode.CONFIG_ERROR,
-                    f"Failed to load .omaster.yaml: {str(e)}"
-                )
-                
-        # Validate model choice
-        if config["ai"]["model"] not in VALID_MODELS:
-            raise ReleaseError(
-                ErrorCode.CONFIG_ERROR,
-                f"Invalid model: {config['ai']['model']}. Must be one of {VALID_MODELS}"
-            )
-            
-        # If repo_name not set, try to get from pyproject.toml
-        if not config["github"]["repo_name"]:
-            try:
-                with open(self.project_path / "pyproject.toml", "rb") as f:
-                    import tomli
-                    pyproject = tomli.load(f)
-                    config["github"]["repo_name"] = pyproject["project"]["name"]
-            except Exception as e:
-                raise ReleaseError(
-                    ErrorCode.CONFIG_ERROR,
-                    "Repository name must be set in .omaster.yaml or pyproject.toml"
-                )
-            
-        return config
-        
-    def _deep_merge(self, base: Dict[str, Any], update: Dict[str, Any]) -> None:
-        """Deep merge two dictionaries.
-        
+
         Args:
-            base: Base dictionary to merge into
-            update: Dictionary to merge from
+            project_path: Optional path to project directory
+
+        Returns:
+            Config instance
+
+        Raises:
+            ReleaseError: If configuration is invalid
         """
-        for key, value in update.items():
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                self._deep_merge(base[key], value)
+        config_data = DEFAULT_CONFIG.copy()
+
+        # Find config file
+        if project_path is None:
+            project_path = Path.cwd()
+
+        config_path = project_path / ".omaster.yaml"
+        logger.info(f"Looking for configuration at {config_path}")
+
+        if config_path.exists():
+            try:
+                logger.info("Loading configuration from .omaster.yaml")
+                with open(config_path, "r") as f:
+                    user_config = yaml.safe_load(f)
+                
+                if user_config:
+                    # Merge user config with defaults
+                    cls._merge_configs(config_data, user_config)
+                    logger.info("✓ Configuration loaded successfully")
+            except Exception as e:
+                logger.error(f"Failed to load configuration: {str(e)}")
+                raise ReleaseError(
+                    ErrorCode.CONFIG_ERROR,
+                    f"Failed to load configuration: {str(e)}"
+                )
+        else:
+            logger.info("No .omaster.yaml found, using default configuration")
+
+        # Validate configuration
+        cls._validate_config(config_data)
+        return cls(config_data)
+
+    @staticmethod
+    def _merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> None:
+        """Recursively merge override config into base config.
+
+        Args:
+            base: Base configuration
+            override: Override configuration
+        """
+        for key, value in override.items():
+            if (
+                key in base 
+                and isinstance(base[key], dict) 
+                and isinstance(value, dict)
+            ):
+                Config._merge_configs(base[key], value)
             else:
                 base[key] = value
-                
+
+    @staticmethod
+    def _validate_config(config: Dict[str, Any]) -> None:
+        """Validate configuration.
+
+        Args:
+            config: Configuration to validate
+
+        Raises:
+            ReleaseError: If configuration is invalid
+        """
+        # Validate AI model
+        ai_config = config.get("ai", {})
+        model = ai_config.get("model")
+        if model and model not in VALID_MODELS:
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                f"Invalid AI model: {model}. Must be one of: {', '.join(VALID_MODELS)}"
+            )
+
+        # Validate quality thresholds
+        quality_config = config.get("quality", {})
+        for section in ["complexity", "dead_code", "similarity"]:
+            if section in quality_config:
+                section_config = quality_config[section]
+                if not isinstance(section_config, dict):
+                    raise ReleaseError(
+                        ErrorCode.CONFIG_ERROR,
+                        f"Invalid quality.{section} configuration: must be a dictionary"
+                    )
+
+                # Validate weights
+                weights = section_config.get("weights", {})
+                if not isinstance(weights, dict):
+                    raise ReleaseError(
+                        ErrorCode.CONFIG_ERROR,
+                        f"Invalid quality.{section}.weights configuration: must be a dictionary"
+                    )
+                for weight_name, weight_value in weights.items():
+                    if not isinstance(weight_value, (int, float)) or not 0 <= weight_value <= 1:
+                        raise ReleaseError(
+                            ErrorCode.CONFIG_ERROR,
+                            f"Invalid weight value for {section}.{weight_name}: {weight_value}. Must be between 0 and 1"
+                        )
+
+        # Validate severity weights
+        severity_weights = quality_config.get("severity_weights", {})
+        if not isinstance(severity_weights, dict):
+            raise ReleaseError(
+                ErrorCode.CONFIG_ERROR,
+                "Invalid severity_weights configuration: must be a dictionary"
+            )
+        for severity, weight in severity_weights.items():
+            if not isinstance(weight, (int, float)) or not 0 <= weight <= 1:
+                raise ReleaseError(
+                    ErrorCode.CONFIG_ERROR,
+                    f"Invalid severity weight for {severity}: {weight}. Must be between 0 and 1"
+                )
+
+    def get(self, *keys: str, default: Any = None) -> Any:
+        """Get configuration value.
+
+        Args:
+            *keys: Key path
+            default: Default value if key not found
+
+        Returns:
+            Configuration value
+        """
+        value = self.data
+        for key in keys:
+            if not isinstance(value, dict):
+                return default
+            value = value.get(key, default)
+            if value is None:
+                return default
+        return value
+
     @property
     def model(self) -> str:
         """Get the configured AI model."""
-        return self.config["ai"]["model"]
-    
+        return self.data["ai"]["model"]
+
     @property
     def github_repo(self) -> str:
         """Get the configured GitHub repository name."""
-        return self.config["github"]["repo_name"]
-    
+        return self.data["github"]["repo_name"]
+
     @property
     def github_org(self) -> str | None:
         """Get the configured GitHub organization (if any)."""
-        return self.config["github"]["org"]
-    
+        return self.data["github"]["org"]
+
     @property
     def github_private(self) -> bool:
         """Get whether the repository should be private."""
-        return self.config["github"]["private"]
-    
+        return self.data["github"]["private"]
+
     @property
     def quality_config(self) -> dict:
         """Get the code quality configuration."""
-        return self.config["quality"]
-    
+        return self.data["quality"]
+
     def get_severity_weight(self, severity: str) -> float:
         """Get the weight for a severity level.
-        
+
         Args:
             severity: Severity level (critical, high, medium, low, info)
-            
+
         Returns:
             float: Weight between 0 and 1
         """
-        return self.config["quality"]["severity_weights"].get(
-            severity.lower(), 
+        return self.data["quality"]["severity_weights"].get(
+            severity.lower(),
             DEFAULT_SEVERITY_WEIGHTS["info"]
-        ) 
+        )

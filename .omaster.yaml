@@ -1,0 +1,56 @@
+ai:
+  model: gpt-4o-mini  # Default to the smaller model
+
+quality:
+  # Complexity thresholds
+  complexity:
+    max_cyclomatic: 15
+    max_cognitive: 20
+    min_maintainability: 65
+    max_halstead_difficulty: 30
+    min_halstead_language_level: 0.8
+    max_bug_prediction: 0.4
+    max_oop_complexity: 50
+    weights:
+      cyclomatic: 0.8
+      cognitive: 0.7
+      maintainability: 0.6
+      halstead: 0.5
+      oop: 0.4
+
+  # Dead code thresholds
+  dead_code:
+    unused_import_threshold: 0.2
+    unused_variable_threshold: 0.3
+    unused_function_threshold: 0.5
+    unused_class_threshold: 0.6
+    unreachable_code_threshold: 0.8
+    weights:
+      unused_import: 0.2
+      unused_variable: 0.3
+      unused_function: 0.5
+      unused_class: 0.6
+      unreachable_code: 0.8
+
+  # Similarity thresholds
+  similarity:
+    exact_match_threshold: 1.0
+    ast_similarity_threshold: 0.7
+    token_similarity_threshold: 0.8
+    cfg_similarity_threshold: 0.6
+    semantic_similarity_threshold: 0.85
+    min_lines: 6
+    weights:
+      exact_match: 1.0
+      ast_similarity: 0.8
+      token_similarity: 0.6
+      cfg_similarity: 0.7
+      semantic_similarity: 0.5
+
+  # Global severity weights
+  severity_weights:
+    critical: 1.0
+    high: 0.8
+    medium: 0.5
+    low: 0.2
+    info: 0.1 

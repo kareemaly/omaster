@@ -225,10 +225,10 @@ class ConfigLoader:
 
     def _load_config_from_file(self, path: Path) -> Optional[Dict[str, Any]]:
         """Load configuration from a file.
-        
+
         Args:
             path: Path to configuration file
-            
+
         Returns:
             Optional[Dict[str, Any]]: Loaded configuration or None if failed
         """
@@ -241,10 +241,10 @@ class ConfigLoader:
 
     def _convert_to_structured_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Convert raw config dict to structured format.
-        
+
         Args:
             config: Raw configuration dictionary
-            
+
         Returns:
             Dict[str, Any]: Structured configuration
         """
@@ -260,7 +260,7 @@ class ConfigLoader:
 
     def _get_current_config_dict(self) -> Dict[str, Any]:
         """Get current configuration as dictionary.
-        
+
         Returns:
             Dict[str, Any]: Current configuration
         """
@@ -275,7 +275,7 @@ class ConfigLoader:
 
     def _update_config_from_dict(self, config_dict: Dict[str, Any]) -> None:
         """Update configuration object from dictionary.
-        
+
         Args:
             config_dict: Configuration dictionary to apply
         """

@@ -1,0 +1,142 @@
+2025-02-01 04:16:41,571 - omaster.main - INFO - Starting omaster...
+2025-02-01 04:16:41,571 - omaster.main - INFO - Running validation...
+2025-02-01 04:16:41,572 - omaster.commands.validate - INFO - Validating project at /Users/kareemelbahrawy/repos/scripts/omaster
+2025-02-01 04:16:41,572 - omaster.commands.validate - INFO - Running basic validation...
+2025-02-01 04:16:41,572 - omaster.core.validator - INFO - Validating project structure...
+2025-02-01 04:16:41,572 - omaster.core.validator - INFO - ✓ Project structure validation passed
+2025-02-01 04:16:41,572 - omaster.commands.validate - INFO - ✓ Basic validation passed
+2025-02-01 04:16:41,572 - omaster.commands.validate - INFO - Running code quality checks...
+2025-02-01 04:16:41,572 - omaster.commands.validate - ERROR - Unexpected error during validation
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/validate.py", line 35, in validate
+    ComplexityAnalyzer(project_path),
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+TypeError: ComplexityAnalyzer.__init__() missing 1 required positional argument: 'config'
+2025-02-01 04:16:41,572 - omaster - ERROR - Error 999: UNKNOWN_ERROR
+2025-02-01 04:16:41,572 - omaster - ERROR - 🚨 Error 🚨
+Code: 999 - Unknown Error
+
+Description:
+An unexpected error occurred
+
+How to fix:
+Check error message and stack trace
+
+Example:
+Contact support if issue persists
+
+Additional context:
+Unexpected error during validation
+
+Details:
+{'error': "ComplexityAnalyzer.__init__() missing 1 required positional argument: 'config'"}
+
+Stack trace:
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/validate.py", line 35, in validate
+    ComplexityAnalyzer(project_path),
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+TypeError: ComplexityAnalyzer.__init__() missing 1 required positional argument: 'config'
+
+2025-02-01 04:17:07,051 - omaster.main - INFO - Starting omaster...
+2025-02-01 04:17:07,051 - omaster.main - INFO - Running validation...
+2025-02-01 04:17:07,051 - omaster.commands.validate - INFO - Validating project at /Users/kareemelbahrawy/repos/scripts/omaster
+2025-02-01 04:17:07,051 - omaster.commands.validate - INFO - Running basic validation...
+2025-02-01 04:17:07,051 - omaster.core.validator - INFO - Validating project structure...
+2025-02-01 04:17:07,051 - omaster.core.validator - INFO - ✓ Project structure validation passed
+2025-02-01 04:17:07,051 - omaster.commands.validate - INFO - ✓ Basic validation passed
+2025-02-01 04:17:07,051 - omaster.commands.validate - INFO - Running code quality checks...
+2025-02-01 04:17:07,051 - omaster.commands.validate - ERROR - Unexpected error during validation
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/validate.py", line 39, in validate
+    ComplexityAnalyzer(project_path, config.quality_config),
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/quality/analyzers/complexity.py", line 32, in __init__
+    complexity_config = config["quality"]["complexity"]
+                        ~~~~~~^^^^^^^^^^^
+KeyError: 'quality'
+2025-02-01 04:17:07,052 - omaster - ERROR - Error 999: UNKNOWN_ERROR
+2025-02-01 04:17:07,052 - omaster - ERROR - 🚨 Error 🚨
+Code: 999 - Unknown Error
+
+Description:
+An unexpected error occurred
+
+How to fix:
+Check error message and stack trace
+
+Example:
+Contact support if issue persists
+
+Additional context:
+Unexpected error during validation
+
+Details:
+{'error': "'quality'"}
+
+Stack trace:
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/validate.py", line 39, in validate
+    ComplexityAnalyzer(project_path, config.quality_config),
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/quality/analyzers/complexity.py", line 32, in __init__
+    complexity_config = config["quality"]["complexity"]
+                        ~~~~~~^^^^^^^^^^^
+KeyError: 'quality'
+
+2025-02-01 04:22:00,653 - omaster.main - INFO - 
+Releasing project: /Users/kareemelbahrawy/repos/scripts/omaster
+
+2025-02-01 04:22:00,654 - omaster - ERROR - Unhandled exception
+2025-02-01 04:24:03,073 - omaster.main - INFO - 
+Releasing project: /Users/kareemelbahrawy/repos/scripts/omaster
+
+2025-02-01 04:24:03,074 - omaster - ERROR - Unhandled exception
+2025-02-01 04:24:53,885 - omaster.main - INFO - 
+Releasing project: /Users/kareemelbahrawy/repos/scripts/omaster
+
+2025-02-01 04:24:53,885 - omaster.commands.release_steps.step_1_5_code_quality - INFO - Starting code quality analysis...
+2025-02-01 04:24:53,885 - omaster.commands.release_steps.step_1_5_code_quality - ERROR - Unexpected error during code quality analysis
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/release_steps/step_1_5_code_quality.py", line 311, in run
+    config = Config.load()
+             ^^^^^^^^^^^
+AttributeError: type object 'Config' has no attribute 'load'
+2025-02-01 04:24:53,886 - omaster - ERROR - Unhandled exception
+2025-02-01 04:25:16,730 - omaster.main - INFO - 
+Releasing project: /Users/kareemelbahrawy/repos/scripts/omaster
+
+2025-02-01 04:25:16,731 - omaster.commands.release_steps.step_1_5_code_quality - INFO - Starting code quality analysis...
+2025-02-01 04:25:16,731 - omaster.commands.release_steps.step_1_5_code_quality - ERROR - Failed to initialize analyzers: DeadCodeAnalyzer.__init__() takes 2 positional arguments but 3 were given
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/release_steps/step_1_5_code_quality.py", line 324, in run
+    DeadCodeAnalyzer(project_path, config.get("quality", {})),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: DeadCodeAnalyzer.__init__() takes 2 positional arguments but 3 were given
+2025-02-01 04:25:16,731 - omaster.commands.release_steps.step_1_5_code_quality - ERROR - Unexpected error during code quality analysis
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/release_steps/step_1_5_code_quality.py", line 324, in run
+    DeadCodeAnalyzer(project_path, config.get("quality", {})),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: DeadCodeAnalyzer.__init__() takes 2 positional arguments but 3 were given
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/commands/release_steps/step_1_5_code_quality.py", line 330, in run
+    raise ReleaseError(
+          ~~~~~~~~~~~~^
+        ErrorCode.ANALYZER_INIT_ERROR,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"Failed to initialize code quality analyzers: {str(e)}"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/core/errors.py", line 261, in __init__
+    super().__init__(self._format_message())
+                     ~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/kareemelbahrawy/repos/scripts/omaster/omaster/core/errors.py", line 277, in _format_message
+    template = ERROR_TEMPLATES[self.code]
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^
+KeyError: <ErrorCode.ANALYZER_INIT_ERROR: 1001>
+2025-02-01 04:25:16,732 - omaster - ERROR - Unhandled exception

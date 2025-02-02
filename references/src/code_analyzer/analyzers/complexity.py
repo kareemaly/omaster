@@ -28,7 +28,7 @@ class ComplexityVisitor(ast.NodeVisitor):
         old_complexity = self.cyclomatic_complexity
         old_cognitive = self.cognitive_complexity
         old_nesting = self.nesting_level
-        
+
         # Create function metrics
         self.current_function = {
             'name': node.name,
@@ -41,18 +41,18 @@ class ComplexityVisitor(ast.NodeVisitor):
         self.cyclomatic_complexity = 1
         self.cognitive_complexity = 0
         self.nesting_level = 0
-        
+
         # Visit function body
         self.generic_visit(node)
-        
+
         # Update function metrics
         self.current_function['cyclomatic_complexity'] = self.cyclomatic_complexity
         self.current_function['cognitive_complexity'] = self.cognitive_complexity
         self.functions.append(self.current_function)
-        
+
         # Update total LOC
         self.loc += len(node.body)
-        
+
         # Restore state
         self.current_function = old_function
         self.cyclomatic_complexity = old_complexity
@@ -107,7 +107,7 @@ class ComplexityAnalyzer(BaseAnalyzer):
 
     def __init__(self, config: Dict[str, Any]):
         """Initialize the analyzer.
-        
+
         Args:
             config: Configuration dictionary
         """
@@ -116,10 +116,10 @@ class ComplexityAnalyzer(BaseAnalyzer):
 
     def analyze(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a file for complexity metrics.
-        
+
         Args:
             file_path: Path to the file to analyze
-            
+
         Returns:
             Dict containing complexity metrics
         """
@@ -149,10 +149,10 @@ class ComplexityAnalyzer(BaseAnalyzer):
             total_cyclomatic = sum(f['cyclomatic_complexity'] for f in visitor.functions)
             total_cognitive = sum(f['cognitive_complexity'] for f in visitor.functions)
             total_functions = len(visitor.functions)
-            
+
             avg_cyclomatic = total_cyclomatic / total_functions if total_functions > 0 else 0
             avg_cognitive = total_cognitive / total_functions if total_functions > 0 else 0
-            
+
             mi = self._calculate_maintainability_index(content, total_cyclomatic, visitor.loc)
 
             return {
@@ -194,32 +194,32 @@ class ComplexityAnalyzer(BaseAnalyzer):
 
     def _calculate_maintainability_index(self, content: str, complexity: int, loc: int) -> float:
         """Calculate maintainability index using the Microsoft formula.
-        
+
         MI = max(0, (171 - 5.2 * ln(HV) - 0.23 * CC - 16.2 * ln(LOC)) * 100 / 171)
-        
+
         Args:
             content: File content
             complexity: Cyclomatic complexity
             loc: Lines of code
-            
+
         Returns:
             float: Maintainability index between 0 and 100
         """
         if loc == 0:
             return 100.0
-            
+
         # Calculate Halstead Volume (simplified)
         h_length = len(content.split())
         h_volume = h_length * (len(set(content.split())))
-        
+
         # Avoid log(0)
         if h_volume == 0:
             h_volume = 1
         if loc == 0:
             loc = 1
-            
+
         # Calculate maintainability index
         mi = 171 - 5.2 * math.log(h_volume) - 0.23 * complexity - 16.2 * math.log(loc)
         mi = max(0, mi) * 100 / 171
-        
-        return round(mi, 2) 
+
+        return round(mi, 2)

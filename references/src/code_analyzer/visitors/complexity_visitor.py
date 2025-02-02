@@ -14,20 +14,20 @@ class ComplexityVisitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef):
         parent_function = self.current_function
         parent_complexity = self.current_complexity
-        
+
         self.current_function = node.name
         self.current_complexity = 1  # Base complexity
-        
+
         # Visit function body
         self.generic_visit(node)
-        
+
         # Store function complexity
         self.complex_functions.append(ComplexFunction(
             name=node.name,
             complexity=self.current_complexity,
             location=self.file_path
         ))
-        
+
         self.current_function = parent_function
         self.current_complexity = parent_complexity
 
@@ -65,4 +65,4 @@ class ComplexityVisitor(ast.NodeVisitor):
     def visit_BoolOp(self, node: ast.BoolOp):
         if isinstance(node.op, ast.And) or isinstance(node.op, ast.Or):
             self.current_complexity += len(node.values) - 1  # Each boolean operator adds complexity
-        self.generic_visit(node) 
+        self.generic_visit(node)

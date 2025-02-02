@@ -5,4 +5,4 @@ from pathlib import Path
 class ComplexFunction:
     name: str
     complexity: int
-    location: Path 
+    location: Path

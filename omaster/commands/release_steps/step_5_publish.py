@@ -15,13 +15,13 @@ def run_command(cmd: str, cwd: Path) -> bool:
 
 def run(project_path: Path) -> bool:
     """Publish package to PyPI.
-    
+
     Args:
         project_path: Path to the project directory
-        
+
     Returns:
         bool: True if publish successful, False otherwise
-        
+
     Raises:
         ReleaseError: If publishing fails
     """
@@ -34,4 +34,4 @@ def run(project_path: Path) -> bool:
     except subprocess.CalledProcessError as e:
         if "already exists" in str(e):
             raise ReleaseError(ErrorCode.PACKAGE_EXISTS, str(e))
-        raise ReleaseError(ErrorCode.PUBLISH_FAILED, str(e)) 
+        raise ReleaseError(ErrorCode.PUBLISH_FAILED, str(e))

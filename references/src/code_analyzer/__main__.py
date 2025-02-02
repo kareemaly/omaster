@@ -63,7 +63,7 @@ def cli():
 def analyze(paths, config, output, min_complexity, exclude, verbose):
     """Analyze code complexity and quality."""
     error_console = Console(file=sys.stderr)
-    
+
     try:
         # Create command instance with options
         cmd = registry.get_command(
@@ -74,17 +74,17 @@ def analyze(paths, config, output, min_complexity, exclude, verbose):
             min_complexity=min_complexity,
             exclude=exclude
         )
-        
+
         if not cmd:
             raise click.ClickException("Analyze command not found")
-            
+
         if not paths:
             paths = ["."]
-            
+
         result = cmd.run(paths)
         if result != 0:
             raise click.ClickException("Analysis failed")
-            
+
     except Exception as e:
         error_console.print(f"[red]Error:[/red] {str(e)}")
         if verbose:

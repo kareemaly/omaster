@@ -25,23 +25,23 @@ def clean_dist(project_path: Path) -> bool:
 
 def run(project_path: Path) -> bool:
     """Clean old builds and build package.
-    
+
     Args:
         project_path: Path to the project directory
-        
+
     Returns:
         bool: True if build successful, False otherwise
-        
+
     Raises:
         ReleaseError: If cleaning or building fails
     """
     print("Step 4: Cleaning and building package...")
-    
+
     # Clean dist
     if not clean_dist(project_path):
         raise ReleaseError(ErrorCode.BUILD_CLEAN_FAILED)
     print("✓ Clean successful")
-    
+
     # Build
     try:
         if not run_command("uv build", project_path):

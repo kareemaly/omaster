@@ -39,10 +39,10 @@ class Symbol:
     decorators: List[str] = field(default_factory=list)
     used_by: Set['Symbol'] = field(default_factory=set)
     uses: Set['Symbol'] = field(default_factory=set)
-    
+
     def __hash__(self):
         return hash((self.name, self.type, self.file_path, self.line))
-    
+
     def __eq__(self, other):
         if not isinstance(other, Symbol):
             return False
@@ -54,28 +54,28 @@ class Symbol:
 
 class SymbolTable:
     """Tracks symbols and their relationships."""
-    
+
     def __init__(self):
         self.symbols: Dict[str, Symbol] = {}
         self.file_symbols: Dict[str, List[Symbol]] = {}
         self.current_class: Optional[Symbol] = None
         self.current_function: Optional[Symbol] = None
         self.scope_stack: List[Symbol] = []
-    
+
     def add_symbol(self, symbol: Symbol):
         """Add a symbol to the table."""
         key = f"{symbol.file_path}:{symbol.line}:{symbol.name}"
         self.symbols[key] = symbol
-        
+
         if symbol.file_path not in self.file_symbols:
             self.file_symbols[symbol.file_path] = []
         self.file_symbols[symbol.file_path].append(symbol)
-    
+
     def get_symbol(self, name: str, file_path: str, line: int) -> Optional[Symbol]:
         """Get a symbol by its identifiers."""
         key = f"{file_path}:{line}:{name}"
         return self.symbols.get(key)
-    
+
     def get_file_symbols(self, file_path: str) -> List[Symbol]:
         """Get all symbols defined in a file."""
         return self.file_symbols.get(file_path, [])
@@ -83,18 +83,18 @@ class SymbolTable:
 
 class DefinitionVisitor(ast.NodeVisitor):
     """AST visitor for finding symbol definitions."""
-    
+
     def __init__(self, file_path: str, symbol_table: SymbolTable):
         self.file_path = file_path
         self.symbol_table = symbol_table
         self.current_class = None
         self.current_function = None
         self.imported_names = set()
-    
+
     def visit_ClassDef(self, node):
         """Visit class definition."""
         old_class = self.current_class
-        
+
         # Create class symbol
         symbol = Symbol(
             name=node.name,
@@ -110,25 +110,25 @@ class DefinitionVisitor(ast.NodeVisitor):
             is_private=node.name.startswith('_'),
             is_test=node.name.startswith('Test') or node.name.endswith('Test')
         )
-        
+
         if old_class:
             symbol.parent = old_class
-            
+
         self.symbol_table.add_symbol(symbol)
         self.current_class = symbol
-        
+
         # Visit class body
         self.generic_visit(node)
-        
+
         self.current_class = old_class
-    
+
     def visit_FunctionDef(self, node):
         """Visit function definition."""
         old_function = self.current_function
-        
+
         # Determine if this is a method
         symbol_type = SymbolType.METHOD if self.current_class else SymbolType.FUNCTION
-        
+
         # Create function/method symbol
         symbol = Symbol(
             name=node.name,
@@ -156,19 +156,19 @@ class DefinitionVisitor(ast.NodeVisitor):
                 if isinstance(d, ast.Name)
             )
         )
-        
+
         self.symbol_table.add_symbol(symbol)
         self.current_function = symbol
-        
+
         # Visit function body
         self.generic_visit(node)
-        
+
         self.current_function = old_function
-    
+
     def visit_AsyncFunctionDef(self, node):
         """Visit async function definition."""
         self.visit_FunctionDef(node)  # Handle same as sync functions
-    
+
     def visit_Import(self, node):
         """Visit import statement."""
         for alias in node.names:
@@ -182,7 +182,7 @@ class DefinitionVisitor(ast.NodeVisitor):
             )
             self.symbol_table.add_symbol(symbol)
             self.imported_names.add(name)
-    
+
     def visit_ImportFrom(self, node):
         """Visit from-import statement."""
         for alias in node.names:
@@ -202,24 +202,24 @@ class DefinitionVisitor(ast.NodeVisitor):
 
 class UsageVisitor(ast.NodeVisitor):
     """AST visitor for finding symbol usage."""
-    
+
     def __init__(self, file_path: str, symbol_table: SymbolTable):
         self.file_path = file_path
         self.symbol_table = symbol_table
         self.current_scope = None
         self.used_names = set()
-    
+
     def visit_Name(self, node):
         """Visit name node."""
         if isinstance(node.ctx, ast.Load):
             self.used_names.add(node.id)
-            
+
             # Try to find the symbol in the current file
             symbol = self.symbol_table.get_symbol(node.id, self.file_path, node.lineno)
             if symbol and self.current_scope:
                 symbol.used_by.add(self.current_scope)
                 self.current_scope.uses.add(symbol)
-    
+
     def visit_ClassDef(self, node):
         """Visit class definition."""
         old_scope = self.current_scope
@@ -228,18 +228,18 @@ class UsageVisitor(ast.NodeVisitor):
             self.file_path,
             node.lineno
         )
-        
+
         # Visit bases and decorators
         for base in node.bases:
             self.visit(base)
         for decorator in node.decorator_list:
             self.visit(decorator)
-            
+
         # Visit class body
         self.generic_visit(node)
-        
+
         self.current_scope = old_scope
-    
+
     def visit_FunctionDef(self, node):
         """Visit function definition."""
         old_scope = self.current_scope
@@ -248,16 +248,16 @@ class UsageVisitor(ast.NodeVisitor):
             self.file_path,
             node.lineno
         )
-        
+
         # Visit decorators
         for decorator in node.decorator_list:
             self.visit(decorator)
-            
+
         # Visit function body
         self.generic_visit(node)
-        
+
         self.current_scope = old_scope
-    
+
     def visit_AsyncFunctionDef(self, node):
         """Visit async function definition."""
         self.visit_FunctionDef(node)  # Handle same as sync functions
@@ -268,7 +268,7 @@ class DeadCodeAnalyzer(BaseAnalyzer):
 
     def __init__(self, config: Dict[str, Any]):
         """Initialize the analyzer.
-        
+
         Args:
             config: Configuration dictionary
         """
@@ -283,10 +283,10 @@ class DeadCodeAnalyzer(BaseAnalyzer):
 
     def analyze(self, file_paths: List[Path]) -> Dict[str, Any]:
         """Analyze files for unused code.
-        
+
         Args:
             file_paths: List of paths to analyze
-            
+
         Returns:
             Dict containing dead code analysis results
         """
@@ -294,33 +294,33 @@ class DeadCodeAnalyzer(BaseAnalyzer):
         for file_path in file_paths:
             if self.should_ignore_file(file_path):
                 continue
-                
+
             try:
                 self._collect_symbols(file_path)
             except Exception as e:
                 self._log_error(f"Error collecting symbols from {file_path}: {str(e)}")
-        
+
         # Second pass: analyze usage
         for file_path in file_paths:
             if self.should_ignore_file(file_path):
                 continue
-                
+
             try:
                 self._analyze_usage(file_path)
             except Exception as e:
                 self._log_error(f"Error analyzing usage in {file_path}: {str(e)}")
-        
+
         # Find unused symbols
         unused_classes = []
         unused_functions = []
         unused_methods = []
         unused_variables = []
         unused_imports = []
-        
+
         for symbol in self.symbol_table.symbols.values():
             if self._should_ignore_symbol(symbol):
                 continue
-                
+
             if not symbol.used_by:
                 result = {
                     'name': symbol.name,
@@ -329,7 +329,7 @@ class DeadCodeAnalyzer(BaseAnalyzer):
                     'end_line': symbol.end_line,
                     'type': symbol.type.value
                 }
-                
+
                 if symbol.type == SymbolType.CLASS:
                     unused_classes.append(result)
                 elif symbol.type == SymbolType.FUNCTION:
@@ -340,7 +340,7 @@ class DeadCodeAnalyzer(BaseAnalyzer):
                     unused_variables.append(result)
                 elif symbol.type == SymbolType.IMPORT:
                     unused_imports.append(result)
-        
+
         return {
             'unused_classes': unused_classes,
             'unused_functions': unused_functions,
@@ -361,11 +361,11 @@ class DeadCodeAnalyzer(BaseAnalyzer):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
+
             tree = ast.parse(content)
             visitor = DefinitionVisitor(str(file_path), self.symbol_table)
             visitor.visit(tree)
-            
+
         except Exception as e:
             self._log_error(f"Error parsing {file_path}: {str(e)}")
 
@@ -374,11 +374,11 @@ class DeadCodeAnalyzer(BaseAnalyzer):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
+
             tree = ast.parse(content)
             visitor = UsageVisitor(str(file_path), self.symbol_table)
             visitor.visit(tree)
-            
+
         except Exception as e:
             self._log_error(f"Error analyzing {file_path}: {str(e)}")
 
@@ -386,17 +386,17 @@ class DeadCodeAnalyzer(BaseAnalyzer):
         """Check if a symbol should be ignored in dead code analysis."""
         if symbol.is_test and self.ignore_test_files:
             return True
-            
+
         if symbol.is_private and self.ignore_private:
             return True
-            
+
         if symbol.is_special and self.ignore_special:
             return True
-            
+
         if symbol.is_override and self.ignore_overrides:
             return True
-            
+
         if symbol.is_property and self.ignore_properties:
             return True
-            
-        return False 
+
+        return False

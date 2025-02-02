@@ -11,14 +11,14 @@ class CommitInfo(TypedDict):
 
 def run(project_path: Path, commit_info: CommitInfo) -> bool:
     """Bump version based on changes.
-    
+
     Args:
         project_path: Path to the project directory
         commit_info: Information about the changes
-        
+
     Returns:
         bool: True if version bump successful, False otherwise
-        
+
     Raises:
         ReleaseError: If version bump fails
     """
@@ -31,4 +31,4 @@ def run(project_path: Path, commit_info: CommitInfo) -> bool:
     except ValueError as e:
         raise ReleaseError(ErrorCode.INVALID_VERSION, str(e))
     except Exception as e:
-        raise ReleaseError(ErrorCode.VERSION_BUMP_FAILED, str(e)) 
+        raise ReleaseError(ErrorCode.VERSION_BUMP_FAILED, str(e))
