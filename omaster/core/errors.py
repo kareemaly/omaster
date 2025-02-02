@@ -27,6 +27,7 @@ class ErrorCode(Enum):
     VERSION_UPDATE_FAILED = 110
     BUILD_FAILED = 111
     BUILD_CLEAN_FAILED = 112
+    CODE_QUALITY_ERROR = 113
 
 # Error messages for each error code
 ERROR_MESSAGES: Dict[ErrorCode, str] = {
@@ -43,7 +44,8 @@ ERROR_MESSAGES: Dict[ErrorCode, str] = {
     ErrorCode.GIT_OPERATION_FAILED: "[red]Git operation failed:[/red] {message}",
     ErrorCode.VERSION_UPDATE_FAILED: "[red]Version update failed:[/red] {message}",
     ErrorCode.BUILD_FAILED: "[red]Build failed:[/red] {message}",
-    ErrorCode.BUILD_CLEAN_FAILED: "[red]Build clean failed:[/red] {message}"
+    ErrorCode.BUILD_CLEAN_FAILED: "[red]Build clean failed:[/red] {message}",
+    ErrorCode.CODE_QUALITY_ERROR: "[red]Code quality check failed:[/red] {message}"
 }
 
 

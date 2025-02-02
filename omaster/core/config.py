@@ -37,6 +37,10 @@ DEFAULT_CONFIG = {
         "org": None,
         "repo": None,
         "private": False
+    },
+    "quality": {
+        "max_complexity": 15,
+        "max_duplicates": 1.0
     }
 }
 

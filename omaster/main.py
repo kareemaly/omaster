@@ -6,10 +6,12 @@ from typing import Optional, Tuple
 from .core.errors import ReleaseError, ErrorCode, handle_error
 from .commands.release_steps import (
     step_1_validate,
-    step_2_analyze_changes,
-    step_3_bump_version,
-    step_4_clean_build,
-    step_5_publish
+    step_2_validate_code_quality,
+    step_3_clean_build,
+    step_4_analyze_changes,
+    step_5_bump_version,
+    step_5_publish,
+    step_6_git_commit
 )
 
 # Configure logging
@@ -38,10 +40,26 @@ def main() -> int:
             return ErrorCode.VALIDATION_ERROR.value
         logger.info("✓ Validation passed")
 
-        # Step 2: Analyze changes
-        logger.info("\nStep 2: Change Analysis")
+        # Step 2: Validate code quality
+        logger.info("\nStep 2: Code Quality")
+        logger.info("Validating code quality...")
+        if not step_2_validate_code_quality.run(path):
+            logger.error("❌ Code quality validation failed")
+            return ErrorCode.CODE_QUALITY_ERROR.value
+        logger.info("✓ Code quality validation passed")
+
+        # Step 3: Clean and build
+        logger.info("\nStep 3: Clean and Build")
+        logger.info("Cleaning and building project...")
+        if not step_3_clean_build.run(path):
+            logger.error("❌ Clean and build failed")
+            return ErrorCode.BUILD_ERROR.value
+        logger.info("✓ Clean and build passed")
+
+        # Step 4: Analyze changes
+        logger.info("\nStep 4: Change Analysis")
         logger.info("Analyzing changes...")
-        success, commit_info = step_2_analyze_changes.run(path)
+        success, commit_info = step_4_analyze_changes.run(path)
         if not success:
             logger.error("❌ Change analysis failed")
             return ErrorCode.ANALYSIS_ERROR.value
@@ -49,24 +67,16 @@ def main() -> int:
         logger.info(f"✓ Changes committed: {commit_info.title}")
         logger.info(f"✓ Version bump type: {commit_info.bump_type}")
 
-        # Step 3: Bump version
-        logger.info("\nStep 3: Version Update")
+        # Step 5: Bump version
+        logger.info("\nStep 5: Version Update")
         logger.info("Updating version...")
-        if not step_3_bump_version.run(path, commit_info.model_dump()):
+        if not step_5_bump_version.run(path, commit_info.model_dump()):
             logger.error("❌ Version update failed")
             return ErrorCode.VERSION_UPDATE_FAILED.value
         logger.info("✓ Version updated")
 
-        # Step 4: Clean and build
-        logger.info("\nStep 4: Clean and Build")
-        logger.info("Cleaning and building project...")
-        if not step_4_clean_build.run(path):
-            logger.error("❌ Clean and build failed")
-            return ErrorCode.BUILD_ERROR.value
-        logger.info("✓ Clean and build passed")
-
-        # Step 5: Publish
-        logger.info("\nStep 5: Publish")
+        # Step 6: Publish
+        logger.info("\nStep 6: Publish")
         logger.info("Publishing release...")
         if not step_5_publish.run(path):
             logger.error("❌ Publish failed")
