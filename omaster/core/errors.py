@@ -8,6 +8,17 @@ class ErrorCode(Enum):
     CONFIG_ERROR = 101
     CODE_QUALITY_ERROR = 102
     OPENAI_API_ERROR = 103
+    BUILD_FAILED = 104
+    BUILD_CLEAN_FAILED = 105
+    PUBLISH_ERROR = 106
+    GIT_NO_CHANGES = 107
+    GIT_OPERATION_FAILED = 108
+    VERSION_UPDATE_FAILED = 109
+    OPENAI_API_KEY_MISSING = 110
+    MISSING_PYPROJECT = 111
+    INVALID_PYPROJECT = 112
+    MISSING_README = 113
+    INVALID_README = 114
 
 class ReleaseError(Exception):
     """Base class for release pipeline errors."""
