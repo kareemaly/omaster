@@ -3,46 +3,25 @@
 This step publishes the package to PyPI.
 """
 from pathlib import Path
-from rich.progress import Progress
-from contextlib import nullcontext
-
 from ...core.errors import ReleaseError, ErrorCode
 from ...utils import run_command
+from ...ui.layout import ReleaseUI
 
-def run(project_path: Path, progress: Progress = None, task_id: int = None) -> bool:
-    """Run publish step.
-
-    Args:
-        project_path: Path to the project directory
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
-
-    Returns:
-        bool: True if publish succeeds
-
-    Raises:
-        ReleaseError: If publish fails
-    """
-    # Create dummy progress if none provided
-    dummy_progress = False
-    if progress is None:
-        from rich.console import Console
-        progress = Progress(console=Console())
-        task_id = progress.add_task("[cyan]Step 6: Publish", total=100)
-        dummy_progress = True
+def run(project_path: Path, ui: ReleaseUI) -> bool:
+    """Run publish step."""
+    ui.log("Starting package publish...", style="blue")
+    
+    ui.update_progress("Publishing to PyPI...", 95)
+    ui.log("Publishing package to PyPI...", level="debug")
 
     try:
-        with progress if dummy_progress else nullcontext():
-            if progress and task_id:
-                progress.update(task_id, advance=30, description="[cyan]Step 6: Publishing to PyPI...")
+        if not run_command("uv publish", project_path, ErrorCode.PUBLISH_ERROR):
+            ui.log("Failed to publish package", level="error")
+            return False
 
-            if not run_command("uv publish", project_path, ErrorCode.PUBLISH_ERROR):
-                return False
+        ui.log("✓ Package published successfully", style="green")
+        return True
 
-            if progress and task_id:
-                progress.update(task_id, advance=70, description="[cyan]Step 6: Package published successfully")
-            return True
-
-    finally:
-        if dummy_progress:
-            progress.stop()
+    except ReleaseError as e:
+        ui.log(f"Failed to publish package: {e}", level="error")
+        raise

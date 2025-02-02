@@ -1,28 +1,27 @@
 """Step 2: Validate code quality using radon, jscpd, and vulture."""
 import subprocess
 import json
+import shutil
 from pathlib import Path
 from typing import Dict, Any
-from rich.progress import Progress
-
 from ...core.errors import ReleaseError, ErrorCode
 from ...core.config import Config, load_config
+from ...ui.layout import ReleaseUI
 
-def run_radon(project_path: Path, max_complexity: int = 15, progress: Progress = None, task_id: int = None) -> bool:
+def run_radon(project_path: Path, max_complexity: int = 15, ui: ReleaseUI = None) -> bool:
     """Run radon complexity check.
 
     Args:
         project_path: Path to project directory
         max_complexity: Maximum allowed complexity
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Returns:
         bool: True if check passes
     """
     try:
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[yellow]Step 2: Running complexity analysis...")
+        if ui:
+            ui.log("Running complexity analysis...", level="debug")
             
         result = subprocess.run(
             ["radon", "cc", "-j", "-n", "C", str(project_path)],
@@ -36,32 +35,50 @@ def run_radon(project_path: Path, max_complexity: int = 15, progress: Progress =
         for file_path, blocks in data.items():
             for block in blocks:
                 if block["complexity"] > max_complexity:
+                    if ui:
+                        ui.log(f"High complexity in {file_path}: {block['name']} ({block['complexity']})", level="error")
                     raise ReleaseError(
                         ErrorCode.CODE_QUALITY_ERROR,
                         f"Code complexity too high in {file_path}: {block['name']} ({block['complexity']})"
                     )
                     
-        if progress and task_id:
-            progress.update(task_id, advance=20, description="[yellow]Step 2: Complexity check passed")
+        if ui:
+            ui.log("✓ Complexity check passed", style="green")
         return True
         
     except subprocess.CalledProcessError as e:
+        if ui:
+            ui.log(f"Failed to run radon: {e}", level="error")
         raise ReleaseError(
             ErrorCode.CODE_QUALITY_ERROR,
             f"Failed to run radon: {str(e)}"
         )
 
-def run_jscpd(project_path: Path, max_duplicates: float = 1.0) -> bool:
+def run_jscpd(project_path: Path, max_duplicates: float = 1.0, ui: ReleaseUI = None) -> bool:
     """Run jscpd duplicate code check.
 
     Args:
         project_path: Path to project directory
         max_duplicates: Maximum allowed duplicate percentage
+        ui: UI manager instance
 
     Returns:
         bool: True if check passes
     """
+    # Check if jscpd is installed
+    if not shutil.which("jscpd"):
+        if ui:
+            ui.log("jscpd not found - this tool is required for code quality checks", level="error")
+            ui.log("To install jscpd: npm install -g jscpd", style="yellow")
+        raise ReleaseError(
+            ErrorCode.CODE_QUALITY_ERROR,
+            "jscpd is required but not installed. Install with: npm install -g jscpd"
+        )
+        
     try:
+        if ui:
+            ui.log("Running duplication check...", level="debug")
+            
         # Run jscpd without --json flag as it's not supported in newer versions
         result = subprocess.run(
             ["jscpd", str(project_path)],
@@ -75,31 +92,38 @@ def run_jscpd(project_path: Path, max_duplicates: float = 1.0) -> bool:
             if "%" in line and "clones found" in line.lower():
                 percentage = float(line.split("%")[0].strip().split()[-1])
                 if percentage > max_duplicates:
+                    if ui:
+                        ui.log(f"Too much code duplication: {percentage}% (max {max_duplicates}%)", level="error")
                     raise ReleaseError(
                         ErrorCode.CODE_QUALITY_ERROR,
                         f"Too much code duplication: {percentage}% (max {max_duplicates}%)"
                     )
                 break
+                
+        if ui:
+            ui.log("✓ Duplication check passed", style="green")
         return True
+        
     except subprocess.CalledProcessError as e:
+        if ui:
+            ui.log(f"Failed to run jscpd: {e}", level="error")
         raise ReleaseError(
             ErrorCode.CODE_QUALITY_ERROR,
             f"Failed to run jscpd: {str(e)}"
         )
 
-def run_vulture(progress: Progress = None, task_id: int = None) -> bool:
+def run_vulture(ui: ReleaseUI = None) -> bool:
     """Run vulture to check for dead code.
     
     Args:
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
         
     Returns:
         bool: True if check passes
     """
     try:
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[yellow]Step 2: Checking for dead code...")
+        if ui:
+            ui.log("Running dead code check...", level="debug")
             
         result = subprocess.run(
             ["vulture", "omaster", "--exclude", ".venv/*"],
@@ -108,28 +132,31 @@ def run_vulture(progress: Progress = None, task_id: int = None) -> bool:
             check=False,
         )
         if result.returncode != 0:
+            if ui:
+                ui.log(f"Dead code check failed:\n{result.stdout}", level="error")
             raise ReleaseError(
                 ErrorCode.CODE_QUALITY_ERROR,
                 f"Dead code check failed with exit status {result.returncode}:\n{result.stdout}",
             )
             
-        if progress and task_id:
-            progress.update(task_id, advance=20, description="[yellow]Step 2: Dead code check passed")
+        if ui:
+            ui.log("✓ Dead code check passed", style="green")
         return True
         
     except Exception as e:
+        if ui:
+            ui.log(f"Failed to run vulture: {e}", level="error")
         raise ReleaseError(
             ErrorCode.CODE_QUALITY_ERROR,
             f"Failed to run vulture: {str(e)}",
         )
 
-def run(project_path: Path, progress: Progress = None, task_id: int = None) -> bool:
+def run(project_path: Path, ui: ReleaseUI) -> bool:
     """Run code quality validation.
 
     Args:
         project_path: Path to the project directory
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Returns:
         bool: True if validation passes
@@ -137,45 +164,32 @@ def run(project_path: Path, progress: Progress = None, task_id: int = None) -> b
     Raises:
         ReleaseError: If validation fails
     """
-    # Create dummy progress if none provided
-    dummy_progress = False
-    if progress is None:
-        from rich.console import Console
-        progress = Progress(console=Console())
-        task_id = progress.add_task("[yellow]Step 2: Code Quality", total=100)
-        dummy_progress = True
+    ui.log("Starting code quality validation...", style="blue")
+    
+    # Load configuration
+    ui.update_progress("Loading configuration...", 10)
+    config_data = load_config(project_path)
+    config = Config(config_data)
 
-    try:
-        with progress if dummy_progress else nullcontext():
-            # Load configuration
-            if progress and task_id:
-                progress.update(task_id, advance=10, description="[yellow]Step 2: Loading configuration...")
-            
-            config_data = load_config(project_path)
-            config = Config(config_data)
+    # Get thresholds from config or use defaults
+    quality_config = config.data.get("quality", {})
+    max_complexity = quality_config.get("max_complexity", 15)
+    max_duplicates = quality_config.get("max_duplicates", 1.0)
 
-            # Get thresholds from config or use defaults
-            quality_config = config.data.get("quality", {})
-            max_complexity = quality_config.get("max_complexity", 15)
-            max_duplicates = quality_config.get("max_duplicates", 1.0)
+    # Run radon
+    ui.update_progress("Running complexity analysis...", 30)
+    if not run_radon(project_path, max_complexity, ui):
+        return False
 
-            # Run radon
-            if not run_radon(project_path, max_complexity, progress, task_id):
-                return False
+    # Run jscpd
+    ui.update_progress("Running duplication check...", 60)
+    if not run_jscpd(project_path, max_duplicates, ui):
+        return False
 
-            # Run jscpd
-            print("Running duplication check...")
-            if run_jscpd(project_path, max_duplicates):
-                print("✓ Duplication check passed")
+    # Run vulture
+    ui.update_progress("Running dead code check...", 90)
+    if not run_vulture(ui):
+        return False
 
-            # Run vulture
-            if not run_vulture(progress, task_id):
-                return False
-
-            if progress and task_id:
-                progress.update(task_id, advance=40, description="[yellow]Step 2: All quality checks passed")
-            return True
-
-    finally:
-        if dummy_progress:
-            progress.stop() 
+    ui.log("✓ All quality checks passed", style="green")
+    return True 

@@ -6,11 +6,9 @@ from pathlib import Path
 from typing import Tuple, Dict, Any
 from pydantic import BaseModel
 from openai import OpenAI
-from rich.progress import Progress
-from contextlib import nullcontext
-
 from ...core.errors import ErrorCode, ReleaseError
 from ...core.config import Config, load_config
+from ...ui.layout import ReleaseUI
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +18,11 @@ class CommitInfo(BaseModel):
     description: str
     bump_type: str  # major, minor, or patch
 
-def get_git_diff(progress: Progress = None, task_id: int = None) -> str:
+def get_git_diff(ui: ReleaseUI = None) -> str:
     """Get git diff of staged and unstaged changes.
 
     Args:
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Returns:
         str: Git diff output
@@ -34,8 +31,8 @@ def get_git_diff(progress: Progress = None, task_id: int = None) -> str:
         ReleaseError: If git command fails
     """
     try:
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[blue]Step 3: Getting git diff...")
+        if ui:
+            ui.log("Getting git diff...", level="debug")
             
         staged = subprocess.check_output(['git', 'diff', '--cached'], text=True)
         unstaged = subprocess.check_output(['git', 'diff'], text=True)
@@ -43,31 +40,34 @@ def get_git_diff(progress: Progress = None, task_id: int = None) -> str:
             # Check for unpushed commits
             unpushed = subprocess.check_output(['git', 'log', '@{u}..'], text=True)
             if not unpushed:
+                if ui:
+                    ui.log("No changes found in repository", level="error")
                 raise ReleaseError(
                     ErrorCode.GIT_NO_CHANGES,
                     "No changes found in git repository"
                 )
-            if progress and task_id:
-                progress.update(task_id, advance=10, description="[blue]Step 3: Found unpushed commits")
+            if ui:
+                ui.log("Found unpushed commits", level="debug")
             return unpushed
             
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[blue]Step 3: Git diff retrieved")
+        if ui:
+            ui.log("Git diff retrieved", style="green")
         return staged + unstaged
         
     except subprocess.CalledProcessError as e:
+        if ui:
+            ui.log(f"Failed to get git diff: {e}", level="error")
         raise ReleaseError(
             ErrorCode.GIT_NO_CHANGES,
             f"Failed to get git diff: {str(e)}"
         )
 
-def commit_and_push(commit_info: CommitInfo, progress: Progress = None, task_id: int = None) -> None:
+def commit_and_push(commit_info: CommitInfo, ui: ReleaseUI = None) -> None:
     """Commit changes and push to remote.
 
     Args:
         commit_info: Commit information from AI
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Raises:
         ReleaseError: If git operations fail
@@ -76,46 +76,47 @@ def commit_and_push(commit_info: CommitInfo, progress: Progress = None, task_id:
         # Check if there are any changes to commit
         status = subprocess.check_output(['git', 'status', '--porcelain'], text=True)
         if status:
-            if progress and task_id:
-                progress.update(task_id, advance=10, description="[blue]Step 3: Staging changes...")
+            if ui:
+                ui.log("Staging changes...", level="debug")
                 
             subprocess.run(['git', 'add', '.'], check=True)
             
-            if progress and task_id:
-                progress.update(task_id, advance=10, description="[blue]Step 3: Creating commit...")
+            if ui:
+                ui.log("Creating commit...", level="debug")
                 
             commit_msg = f"{commit_info.title}\n\n{commit_info.description}"
             subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
             
-            if progress and task_id:
-                progress.update(task_id, advance=10, description="[blue]Step 3: Changes committed")
+            if ui:
+                ui.log("✓ Changes committed", style="green")
         else:
-            if progress and task_id:
-                progress.update(task_id, advance=20, description="[blue]Step 3: No changes to commit")
+            if ui:
+                ui.log("No changes to commit", level="debug")
 
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[blue]Step 3: Pushing to remote...")
+        if ui:
+            ui.log("Pushing to remote...", level="debug")
             
         subprocess.run(['git', 'push'], check=True)
         
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[blue]Step 3: Changes pushed")
+        if ui:
+            ui.log("✓ Changes pushed", style="green")
 
     except subprocess.CalledProcessError as e:
+        if ui:
+            ui.log(f"Git operation failed: {e}", level="error")
         raise ReleaseError(
             ErrorCode.GIT_OPERATION_FAILED,
             f"Failed to perform git operation: {str(e)}"
         )
 
-def analyze_with_openai(diff: str, model: str, api_key: str, progress: Progress = None, task_id: int = None) -> CommitInfo:
+def analyze_with_openai(diff: str, model: str, api_key: str, ui: ReleaseUI = None) -> CommitInfo:
     """Analyze git diff with OpenAI.
 
     Args:
         diff: Git diff to analyze
         model: OpenAI model to use
         api_key: OpenAI API key
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Returns:
         CommitInfo: Generated commit information
@@ -124,8 +125,8 @@ def analyze_with_openai(diff: str, model: str, api_key: str, progress: Progress 
         ReleaseError: If analysis fails
     """
     try:
-        if progress and task_id:
-            progress.update(task_id, advance=10, description="[blue]Step 3: Analyzing with OpenAI...")
+        if ui:
+            ui.log("Analyzing changes with OpenAI...", level="debug")
             
         client = OpenAI(api_key=api_key)
         completion = client.chat.completions.create(
@@ -155,24 +156,25 @@ def analyze_with_openai(diff: str, model: str, api_key: str, progress: Progress 
 
         commit_info = CommitInfo.model_validate_json(completion.choices[0].message.content)
         
-        if progress and task_id:
-            progress.update(task_id, advance=10, description=f"[blue]Step 3: Changes analyzed")
+        if ui:
+            ui.log(f"✓ Changes analyzed: {commit_info.title}", style="green")
             
         return commit_info
 
     except Exception as e:
+        if ui:
+            ui.log(f"Failed to analyze changes: {e}", level="error")
         raise ReleaseError(
             ErrorCode.OPENAI_API_ERROR,
             f"Failed to analyze changes: {str(e)}"
         )
 
-def run(project_path: Path, progress: Progress = None, task_id: int = None) -> Tuple[str, str]:
+def run(project_path: Path, ui: ReleaseUI) -> Tuple[str, str]:
     """Analyze changes and generate commit info.
 
     Args:
         project_path: Path to the project directory
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Returns:
         Tuple[str, str]: Commit message and version bump type
@@ -180,48 +182,34 @@ def run(project_path: Path, progress: Progress = None, task_id: int = None) -> T
     Raises:
         ReleaseError: If analysis fails
     """
-    # Create dummy progress if none provided
-    dummy_progress = False
-    if progress is None:
-        from rich.console import Console
-        progress = Progress(console=Console())
-        task_id = progress.add_task("[blue]Step 3: Change Analysis", total=100)
-        dummy_progress = True
+    ui.log("Starting change analysis...", style="blue")
+    
+    # Load configuration
+    ui.update_progress("Loading configuration...", 45)
+    config_data = load_config(project_path)
+    config = Config(config_data)
+    ui.log("Configuration loaded", level="debug")
 
-    try:
-        with progress if dummy_progress else nullcontext():
-            # Load configuration
-            if progress and task_id:
-                progress.update(task_id, advance=10, description="[blue]Step 3: Loading configuration...")
-                
-            config_data = load_config(project_path)
-            config = Config(config_data)
-            
-            if progress and task_id:
-                progress.update(task_id, advance=5, description="[blue]Step 3: Configuration loaded")
+    # Get OpenAI API key
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        ui.log("OpenAI API key not found", level="error")
+        raise ReleaseError(
+            ErrorCode.OPENAI_API_KEY_MISSING,
+            "OpenAI API key not found in environment"
+        )
+    ui.log("OpenAI API key found", level="debug")
 
-            # Get OpenAI API key
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ReleaseError(
-                    ErrorCode.OPENAI_API_KEY_MISSING,
-                    "OpenAI API key not found in environment"
-                )
-                
-            if progress and task_id:
-                progress.update(task_id, advance=5, description="[blue]Step 3: API key validated")
+    # Get git diff
+    ui.update_progress("Getting git diff...", 50)
+    diff = get_git_diff(ui)
 
-            # Get git diff
-            diff = get_git_diff(progress, task_id)
+    # Analyze changes with OpenAI
+    ui.update_progress("Analyzing changes with OpenAI...", 55)
+    commit_info = analyze_with_openai(diff, config.model, api_key, ui)
 
-            # Analyze changes with OpenAI
-            commit_info = analyze_with_openai(diff, config.model, api_key, progress, task_id)
+    # Commit and push changes
+    ui.update_progress("Committing changes...", 58)
+    commit_and_push(commit_info, ui)
 
-            # Commit and push changes
-            commit_and_push(commit_info, progress, task_id)
-
-            return commit_info.title, commit_info.bump_type
-
-    finally:
-        if dummy_progress:
-            progress.stop()
+    return commit_info.title, commit_info.bump_type

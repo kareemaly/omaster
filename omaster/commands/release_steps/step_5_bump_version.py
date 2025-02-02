@@ -5,22 +5,19 @@ This step updates the version number based on the commit analysis.
 import logging
 from pathlib import Path
 from typing import Dict, Any
-from rich.progress import Progress
-from contextlib import nullcontext
-
 from ...core.errors import ReleaseError, ErrorCode
 from ...utils.version import update_version
+from ...ui.layout import ReleaseUI
 
 logger = logging.getLogger(__name__)
 
-def run(project_path: Path, bump_type: str, progress: Progress = None, task_id: int = None) -> bool:
+def run(project_path: Path, bump_type: str, ui: ReleaseUI) -> bool:
     """Run version bump step.
 
     Args:
         project_path: Path to the project directory
         bump_type: Type of version bump (major, minor, patch)
-        progress: Optional Progress instance for updating status
-        task_id: Optional task ID for the progress bar
+        ui: UI manager instance
 
     Returns:
         bool: True if version bump succeeds
@@ -28,40 +25,31 @@ def run(project_path: Path, bump_type: str, progress: Progress = None, task_id: 
     Raises:
         ReleaseError: If version bump fails
     """
-    # Create dummy progress if none provided
-    dummy_progress = False
-    if progress is None:
-        from rich.console import Console
-        progress = Progress(console=Console())
-        task_id = progress.add_task("[magenta]Step 4: Version Update", total=100)
-        dummy_progress = True
+    ui.log("Starting version update...", style="blue")
+
+    if not bump_type:
+        ui.log("No version bump type provided", level="error")
+        raise ReleaseError(
+            ErrorCode.VERSION_UPDATE_FAILED,
+            "No version bump type provided"
+        )
 
     try:
-        with progress if dummy_progress else nullcontext():
-            if progress and task_id:
-                progress.update(task_id, advance=30, description="[magenta]Step 4: Reading current version...")
+        ui.update_progress("Reading current version...", 65)
+        ui.log("Reading current version...", level="debug")
 
-            if not bump_type:
-                raise ReleaseError(
-                    ErrorCode.VERSION_UPDATE_FAILED,
-                    "No version bump type provided"
-                )
+        ui.update_progress("Updating version...", 70)
+        ui.log(f"Bumping version ({bump_type})...", level="debug")
 
-            if progress and task_id:
-                progress.update(task_id, advance=30, description="[magenta]Step 4: Updating version...")
+        new_version = update_version(project_path, bump_type)
 
-            new_version = update_version(project_path, bump_type)
-
-            if progress and task_id:
-                progress.update(task_id, advance=40, description=f"[magenta]Step 4: Version bumped to {new_version}")
-            return True
+        ui.update_progress(f"Version bumped to {new_version}", 75)
+        ui.log(f"✓ Version bumped to {new_version}", style="green")
+        return True
 
     except Exception as e:
-        logger.error(f"Failed to bump version: {str(e)}")
+        ui.log(f"Failed to bump version: {e}", level="error")
         raise ReleaseError(
             ErrorCode.VERSION_UPDATE_FAILED,
             f"Failed to bump version: {str(e)}"
         )
-    finally:
-        if dummy_progress:
-            progress.stop()
