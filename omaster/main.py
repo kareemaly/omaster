@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskID
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
 from .core.errors import ReleaseError, ErrorCode
 from .commands.release_steps import (

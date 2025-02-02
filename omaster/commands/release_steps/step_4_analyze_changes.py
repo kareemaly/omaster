@@ -107,6 +107,65 @@ def commit_and_push(commit_info: CommitInfo, progress: Progress = None, task_id:
             f"Failed to perform git operation: {str(e)}"
         )
 
+def analyze_with_openai(diff: str, model: str, api_key: str, progress: Progress = None, task_id: int = None) -> CommitInfo:
+    """Analyze git diff with OpenAI.
+
+    Args:
+        diff: Git diff to analyze
+        model: OpenAI model to use
+        api_key: OpenAI API key
+        progress: Optional Progress instance for updating status
+        task_id: Optional task ID for the progress bar
+
+    Returns:
+        CommitInfo: Generated commit information
+
+    Raises:
+        ReleaseError: If analysis fails
+    """
+    try:
+        if progress and task_id:
+            progress.update(task_id, advance=10, description="[blue]Step 3: Analyzing with OpenAI...")
+            
+        client = OpenAI(api_key=api_key)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a commit message generator. Analyze the git diff "
+                        "and generate a structured commit message. Your response must be a JSON object "
+                        "with exactly these fields:\n"
+                        "- title: A concise title following conventional commits format\n"
+                        "- description: A detailed description of the changes\n"
+                        "- bump_type: One of 'major', 'minor', or 'patch' based on semantic versioning\n\n"
+                        "Example response format:\n"
+                        "{\n"
+                        '  "title": "feat: add new feature",\n'
+                        '  "description": "Added new feature that does X",\n'
+                        '  "bump_type": "minor"\n'
+                        "}"
+                    )
+                },
+                {"role": "user", "content": f"Git diff:\n{diff}"}
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        commit_info = CommitInfo.model_validate_json(completion.choices[0].message.content)
+        
+        if progress and task_id:
+            progress.update(task_id, advance=10, description=f"[blue]Step 3: Changes analyzed")
+            
+        return commit_info
+
+    except Exception as e:
+        raise ReleaseError(
+            ErrorCode.OPENAI_API_ERROR,
+            f"Failed to analyze changes: {str(e)}"
+        )
+
 def run(project_path: Path, progress: Progress = None, task_id: int = None) -> Tuple[str, str]:
     """Analyze changes and generate commit info.
 
@@ -155,51 +214,13 @@ def run(project_path: Path, progress: Progress = None, task_id: int = None) -> T
             # Get git diff
             diff = get_git_diff(progress, task_id)
 
-            try:
-                if progress and task_id:
-                    progress.update(task_id, advance=10, description="[blue]Step 3: Analyzing with OpenAI...")
-                    
-                client = OpenAI(api_key=api_key)
-                completion = client.chat.completions.create(
-                    model=config.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are a commit message generator. Analyze the git diff "
-                                "and generate a structured commit message. Your response must be a JSON object "
-                                "with exactly these fields:\n"
-                                "- title: A concise title following conventional commits format\n"
-                                "- description: A detailed description of the changes\n"
-                                "- bump_type: One of 'major', 'minor', or 'patch' based on semantic versioning\n\n"
-                                "Example response format:\n"
-                                "{\n"
-                                '  "title": "feat: add new feature",\n'
-                                '  "description": "Added new feature that does X",\n'
-                                '  "bump_type": "minor"\n'
-                                "}"
-                            )
-                        },
-                        {"role": "user", "content": f"Git diff:\n{diff}"}
-                    ],
-                    response_format={"type": "json_object"}
-                )
+            # Analyze changes with OpenAI
+            commit_info = analyze_with_openai(diff, config.model, api_key, progress, task_id)
 
-                commit_info = CommitInfo.model_validate_json(completion.choices[0].message.content)
-                
-                if progress and task_id:
-                    progress.update(task_id, advance=10, description=f"[blue]Step 3: Changes analyzed")
+            # Commit and push changes
+            commit_and_push(commit_info, progress, task_id)
 
-                # Commit and push changes
-                commit_and_push(commit_info, progress, task_id)
-
-                return commit_info.title, commit_info.bump_type
-
-            except Exception as e:
-                raise ReleaseError(
-                    ErrorCode.OPENAI_API_ERROR,
-                    f"Failed to analyze changes: {str(e)}"
-                )
+            return commit_info.title, commit_info.bump_type
 
     finally:
         if dummy_progress:
