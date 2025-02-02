@@ -8,6 +8,7 @@ from .core.validator import validate_project
 from .commands.release_steps import (
     step_1_validate,
     step_2_analyze_changes,
+    step_3_bump_version,
     step_4_clean_build,
     step_5_publish
 )
@@ -137,6 +138,14 @@ def main() -> int:
         logger.info("✓ Change analysis passed")
         logger.info(f"✓ Changes committed: {commit_info.title}")
         logger.info(f"✓ Version bump type: {commit_info.bump_type}")
+
+        # Step 3: Bump version
+        logger.info("\nStep 3: Version Update")
+        logger.info("Updating version...")
+        if not step_3_bump_version.run(path, commit_info.model_dump()):
+            logger.error("❌ Version update failed")
+            return ErrorCode.VERSION_UPDATE_FAILED.value
+        logger.info("✓ Version updated")
 
         # Step 4: Clean and build
         logger.info("\nStep 4: Clean and Build")
