@@ -32,10 +32,15 @@ def get_git_diff() -> str:
         staged = subprocess.check_output(['git', 'diff', '--cached'], text=True)
         unstaged = subprocess.check_output(['git', 'diff'], text=True)
         if not (staged or unstaged):
-            raise ReleaseError(
-                ErrorCode.GIT_NO_CHANGES,
-                "No changes found in git repository"
-            )
+            # Check for unpushed commits
+            unpushed = subprocess.check_output(['git', 'log', '@{u}..'], text=True)
+            if not unpushed:
+                raise ReleaseError(
+                    ErrorCode.GIT_NO_CHANGES,
+                    "No changes found in git repository"
+                )
+            logger.info("✓ Found unpushed commits")
+            return unpushed
         logger.info("✓ Git diff retrieved successfully")
         return staged + unstaged
     except subprocess.CalledProcessError as e:
@@ -54,14 +59,19 @@ def commit_and_push(commit_info: CommitInfo) -> None:
         ReleaseError: If git operations fail
     """
     try:
-        logger.info("Staging all changes...")
-        subprocess.run(['git', 'add', '.'], check=True)
-        logger.info("✓ Changes staged")
+        # Check if there are any changes to commit
+        status = subprocess.check_output(['git', 'status', '--porcelain'], text=True)
+        if status:
+            logger.info("Staging all changes...")
+            subprocess.run(['git', 'add', '.'], check=True)
+            logger.info("✓ Changes staged")
 
-        logger.info("Creating commit...")
-        commit_msg = f"{commit_info.title}\n\n{commit_info.description}"
-        subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
-        logger.info("✓ Changes committed")
+            logger.info("Creating commit...")
+            commit_msg = f"{commit_info.title}\n\n{commit_info.description}"
+            subprocess.run(['git', 'commit', '-m', commit_msg], check=True)
+            logger.info("✓ Changes committed")
+        else:
+            logger.info("No changes to commit, using existing commit")
 
         logger.info("Pushing to remote...")
         subprocess.run(['git', 'push'], check=True)
