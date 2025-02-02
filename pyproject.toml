@@ -1,6 +1,6 @@
 [project]
 name = "omaster"
-version = "0.14.0"
+version = "0.15.0"
 description = "A Python package release tool that automates the entire release process with built-in quality checks and AI-powered features."
 readme = "README.md"
 requires-python = ">=3.9"
